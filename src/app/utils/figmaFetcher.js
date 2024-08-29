@@ -3,7 +3,8 @@ import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 
-const FIGMA_TOKEN = 'YOUR_FIGMA_PERSONAL_ACCESS_TOKEN';
+const FIGMA_TOKEN = 'figd_IuXdq-DGsshLyBZx7Ql55eupeAlMZcghqb5ya1j-'; // Replace with your actual token
+// Lances: figd_TMbVw4dYNLB34g5PkjCG9wMs6LLyMGU-A74vP-eA
 const client = Client({ personalAccessToken: FIGMA_TOKEN });
 
 async function getFigmaFile(fileId) {
@@ -47,7 +48,6 @@ async function processUIKit(fileId, outputDir) {
   const file = await getFigmaFile(fileId);
   const components = [];
 
-  // Recursively find all components
   function traverse(node) {
     if (node.type === 'COMPONENT' || node.type === 'INSTANCE') {
       components.push(node);
@@ -73,11 +73,23 @@ async function processUIKit(fileId, outputDir) {
 }
 
 // Usage
-const fileId = 'FIGMA_FILE_ID'; // Replace with the actual Figma file ID
+const fileIds = [
+  'FIGMA_FILE_ID_1',
+  'FIGMA_FILE_ID_2',
+  // Add more file IDs as needed
+];
 const outputDir = './figma_components';
 
 if (!fs.existsSync(outputDir)){
   fs.mkdirSync(outputDir, { recursive: true });
 }
 
-processUIKit(fileId, outputDir);
+async function fetchAllUIKits() {
+  for (const fileId of fileIds) {
+    console.log(`Processing Figma file: ${fileId}`);
+    await processUIKit(fileId, outputDir);
+  }
+  console.log('All UI kits processed');
+}
+
+fetchAllUIKits();
