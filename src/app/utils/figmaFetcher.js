@@ -1,9 +1,9 @@
-import { Client } from 'figma-js';
-import axios from 'axios';
-import fs from 'fs';
-import path from 'path';
+import { Client } from "figma-js";
+import axios from "axios";
+import fs from "fs";
+import path from "path";
 
-const FIGMA_TOKEN = 'figd_IuXdq-DGsshLyBZx7Ql55eupeAlMZcghqb5ya1j-'; // Replace with your actual token
+const FIGMA_TOKEN = "figd_IuXdq-DGsshLyBZx7Ql55eupeAlMZcghqb5ya1j-"; // Replace with your actual token
 // Lances: figd_TMbVw4dYNLB34g5PkjCG9wMs6LLyMGU-A74vP-eA
 const client = Client({ personalAccessToken: FIGMA_TOKEN });
 
@@ -97,18 +97,20 @@ async function processUIKit(fileKey, outputDir) {
   console.log(`Starting to process UI kit: ${fileKey}`);
   const file = await getFigmaFile(fileKey);
   if (!file || !file.data || !file.data.document) {
-    console.error(`Unable to process file ${fileKey}. File not found or inaccessible.`);
+    console.error(
+      `Unable to process file ${fileId}. File not found or inaccessible.`
+    );
     return;
   }
 
   console.log(`Traversing file structure for ${fileKey}`);
   const components = [];
 
-  function traverse(node, path = []) {
-    if (node.type === 'COMPONENT' || node.type === 'INSTANCE') {
-      components.push({ ...node, path });
+  function traverse(node) {
+    if (node.type === "COMPONENT" || node.type === "INSTANCE") {
+      components.push(node);
     } else if (node.children) {
-      node.children.forEach(child => traverse(child, [...path, node.name]));
+      node.children.forEach(traverse);
     }
   }
 
@@ -117,7 +119,7 @@ async function processUIKit(fileKey, outputDir) {
   console.log(`Found ${components.length} components in file ${fileKey}`);
 
   if (components.length === 0) {
-    console.log(`No components found in file ${fileKey}`);
+    console.log(`No components found in file ${fileId}`);
     return;
   }
 
@@ -125,10 +127,10 @@ async function processUIKit(fileKey, outputDir) {
   console.log(`Fetching image URLs for ${nodeIds.length} components`);
   const imageUrls = await getImageUrls(fileKey, nodeIds);
 
-  if (!imageUrls) {
-    console.error(`Unable to fetch image URLs for file ${fileKey}`);
-    return;
-  }
+    if (!imageUrls) {
+      console.error(`Unable to fetch image URLs for file ${fileId}`);
+      return;
+    }
 
   console.log(`Starting to download images for file ${fileKey}`);
   for (const component of components) {
@@ -160,7 +162,7 @@ const fileKeys = [
   '3Ubj0IUKgG8z5AopZJzrZD',
 ];
 
-const outputDir = './figma_components';
+const outputDir = "./figma_components";
 
 async function fetchAllUIKits() {
   for (const fileKey of fileKeys) {
@@ -168,7 +170,7 @@ async function fetchAllUIKits() {
     await processUIKit(fileKey, outputDir);
     console.log(`--- Completed processing: ${fileKey} ---\n`);
   }
-  console.log('All UI kits processed');
+  console.log("All UI kits processed");
 }
 
 fetchAllUIKits().catch(error => {
