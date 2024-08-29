@@ -1,13 +1,22 @@
-'use client'
+"use client";
 
-import React, { useState } from 'react';
-import Image from 'next/image';
-import { analyzeDesign } from '../utils/designAnalysis';
-import { generateFeedback } from '../utils/openAIFeedback';
+import React, { useState } from "react";
+import Image from "next/image";
+import { analyzeDesign } from "../utils/designAnalysis";
+import { generateFeedback } from "../utils/openAIFeedback";
+import * as tf from "@tensorflow/tfjs";
+import * as mobilenet from "@tensorflow-models/mobilenet";
+
+const analyzeImage = async (imageElement) => {
+  const model = await mobilenet.load();
+  const predictions = await model.classify(imageElement);
+  console.log(predictions);
+  return predictions;
+};
 
 const DesignAssistant = () => {
   const [selectedImage, setSelectedImage] = useState(null);
-  const [feedback, setFeedback] = useState('');
+  const [feedback, setFeedback] = useState("");
 
   const handleImageChange = (event) => {
     const file = event.target.files[0];
