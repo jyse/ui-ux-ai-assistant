@@ -107,6 +107,11 @@ const fileKeys = [
   https://www.figma.com/design/r0rkXHzWhWQF4fw951UUTM/%E2%9D%96-Untitled-UI-%E2%80%93-FREE-Figma-UI-kit-and-design-system-v2.0-(Community)?t=3TlM5aqgnrGInKaU-0
   https://www.figma.com/design/1nmPr3ZbIxiwyyYMiejyqS/iOS-16-UI-Kit-for-Figma-(Community)?node-id=1002-6668&node-type=CANVAS&t=BGvEShYw7Wrsre1H-0
   https://www.figma.com/design/NEsdoTg6cmhsBO8SZ1LPcj/Mobile-UI-kit-(Community)?node-id=194-1561&node-type=CANVAS&t=GnQia22c8QEPnXae-0
+  https://www.figma.com/design/TeEDVA3atoMihlKUoydcae/Instagram-UI-Kit-1.0-(Community)?t=280o4UVdqXOo4QrJ-0
+  https://www.figma.com/design/eWBIN3iwIApgNcCq3MpWu0/Essential-UI---Figma-Ui-Kit-(Community)?node-id=69-5241&node-type=CANVAS&t=ZEVuqnRCDfoWhO0t-0
+  https://www.figma.com/design/enUK2QmBWn8XIlqhI70Fqs/Microsoft-Teams-UI-Kit-(Community)?t=65rrH3mnOv7ehveN-0
+  https://www.figma.com/design/jUUax5RKeO1S7Zf0CttAjy/Wireframes-Kit---Free-wireframing-Websites-and-SaaS-UI-UX-(Community)?node-id=292-11637&node-type=CANVAS&t=dWsEN4cxBh0y3ORF-0
+  https://www.figma.com/design/3Ubj0IUKgG8z5AopZJzrZD/Mobile-App-Ui-Kit-(Community)-(Copy)?node-id=0-1&node-type=CANVAS&t=l0Ao3uEbJwBMOiLP-0
   const outputDir = './figma_components';
   
   if (!fs.existsSync(outputDir)){
