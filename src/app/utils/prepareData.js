@@ -9,42 +9,85 @@ async function loadImage(imagePath) {
   return tfImage.resizeBilinear([224, 224]).toFloat().div(tf.scalar(255));
 }
 
-// Function to get all subdirectories in a directory
-function getSubdirectories(directoryPath) {
-  return fs.readdirSync(directoryPath, { withFileTypes: true })
-    .filter(dirent => dirent.isDirectory())
-    .map(dirent => dirent.name);
+// Function to get all files in a directory and its subdirectories
+function getAllFiles(dirPath, arrayOfFiles) {
+  const files = fs.readdirSync(dirPath);
+
+  arrayOfFiles = arrayOfFiles || [];
+
+  files.forEach(function(file) {
+    if (fs.statSync(dirPath + "/" + file).isDirectory()) {
+      arrayOfFiles = getAllFiles(dirPath + "/" + file, arrayOfFiles);
+    } else {
+      arrayOfFiles.push(path.join(dirPath, "/", file));
+    }
+  });
+
+  return arrayOfFiles;
+}
+
+// Function to sanitize filename (similar to figmaFetcher.js)
+function sanitizeFilename(filename) {
+  return filename.replace(/[^a-z0-9]/gi, '_').toLowerCase();
 }
 
 // Main function to prepare the dataset
 async function prepareDataset() {
-  const datasetPath = 'path/to/your/dataset';
-  const categories = ['layouts', 'color_schemes', 'usability', 'ui_components'];
+  const datasetPath = './figma_components'; // Update this path if necessary
+  const predefinedCategories = ['layouts', 'color_schemes', 'usability', 'ui_components'];
   
   let images = [];
   let labels = [];
   let labelMap = {};
 
-  for (let catIndex = 0; catIndex < categories.length; catIndex++) {
-    const category = categories[catIndex];
-    const categoryPath = path.join(datasetPath, category);
-    const subCategories = getSubdirectories(categoryPath);
+  const allFiles = getAllFiles(datasetPath);
+  const pngFiles = allFiles.filter(file => file.toLowerCase().endsWith('.png'));
 
-    labelMap[category] = subCategories;
+  // Initialize labelMap with predefined categories
+  predefinedCategories.forEach(category => {
+    labelMap[category] = [];
+  });
 
-    for (let subCatIndex = 0; subCatIndex < subCategories.length; subCatIndex++) {
-      const subCategory = subCategories[subCatIndex];
-      const subCategoryPath = path.join(categoryPath, subCategory);
-      const files = fs.readdirSync(subCategoryPath).filter(file => file.endsWith('.png') || file.endsWith('.jpg'));
+  // Add an "other" category for files that don't match predefined categories
+  labelMap['other'] = [];
 
-      for (const file of files) {
-        const imagePath = path.join(subCategoryPath, file);
-        const image = await loadImage(imagePath);
-        images.push(image);
+  for (const file of pngFiles) {
+    try {
+      const image = await loadImage(file);
+      images.push(image);
 
-        const label = tf.oneHot(subCatIndex, subCategories.length);
-        labels.push(label);
+      const sanitizedFilename = sanitizeFilename(path.basename(file));
+      let categoryFound = false;
+
+      for (let catIndex = 0; catIndex < predefinedCategories.length; catIndex++) {
+        const category = predefinedCategories[catIndex];
+        if (sanitizedFilename.includes(sanitizeFilename(category))) {
+          const label = tf.oneHot(catIndex, predefinedCategories.length + 1); // +1 for "other" category
+          labels.push(label);
+
+          // Extract subcategory from filename
+          const subcategory = sanitizedFilename.split('_')[0]; // Adjust based on your naming convention
+          if (!labelMap[category].includes(subcategory)) {
+            labelMap[category].push(subcategory);
+          }
+
+          categoryFound = true;
+          break;
+        }
       }
+
+      if (!categoryFound) {
+        // File doesn't match any predefined category, assign to "other"
+        const label = tf.oneHot(predefinedCategories.length, predefinedCategories.length + 1);
+        labels.push(label);
+
+        const subcategory = sanitizedFilename.split('_')[0];
+        if (!labelMap['other'].includes(subcategory)) {
+          labelMap['other'].push(subcategory);
+        }
+      }
+    } catch (error) {
+      console.error(`Error processing file ${file}:`, error.message);
     }
   }
 
@@ -94,7 +137,7 @@ export async function getDataset(batchSize = 32) {
 }
 
 // If you want to test the script
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   getDataset().then(({ trainDataset, valDataset, labelMap }) => {
     console.log('Label Map:', labelMap);
     console.log('Training Dataset:', trainDataset);
