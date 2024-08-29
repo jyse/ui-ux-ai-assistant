@@ -1,0 +1,11 @@
+Types of UI Components
+First, decide on the specific types of UI components and layouts that the model should recognize and analyze. This might include:
+
+Buttons: Different styles (rounded, square, icon buttons, etc.)
+Forms: Input fields, checkboxes, radio buttons, dropdowns
+Navigation Elements: Menus, tabs, sidebars
+Text Elements: Headers, paragraphs, labels
+Images and Media: Banners, icons, placeholders
+Containers: Cards, grids, modals, sections
+
+Get data from

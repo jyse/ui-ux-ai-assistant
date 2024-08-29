@@ -104,6 +104,9 @@ const fileKeys = [
     'W1qljjfxjPnVRjb4gxjKAD', // Figma for Developers
   ];
   
+  https://www.figma.com/design/r0rkXHzWhWQF4fw951UUTM/%E2%9D%96-Untitled-UI-%E2%80%93-FREE-Figma-UI-kit-and-design-system-v2.0-(Community)?t=3TlM5aqgnrGInKaU-0
+  https://www.figma.com/design/1nmPr3ZbIxiwyyYMiejyqS/iOS-16-UI-Kit-for-Figma-(Community)?node-id=1002-6668&node-type=CANVAS&t=BGvEShYw7Wrsre1H-0
+  https://www.figma.com/design/NEsdoTg6cmhsBO8SZ1LPcj/Mobile-UI-kit-(Community)?node-id=194-1561&node-type=CANVAS&t=GnQia22c8QEPnXae-0
   const outputDir = './figma_components';
   
   if (!fs.existsSync(outputDir)){
