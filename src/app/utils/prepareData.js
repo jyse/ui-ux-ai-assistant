@@ -1,4 +1,5 @@
-import * as tf from '@tensorflow/tfjs-node';
+import * as tf from '@tensorflow/tfjs';
+import '@tensorflow/tfjs-node';  // This line loads the binding
 import fs from 'fs';
 import path from 'path';
 
@@ -29,6 +30,11 @@ function getAllFiles(dirPath, arrayOfFiles) {
 // Function to sanitize filename (similar to figmaFetcher.js)
 function sanitizeFilename(filename) {
   return filename.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+}
+
+// Function to truncate long names
+function truncateName(name, maxLength = 20) {
+  return name.length > maxLength ? name.substring(0, maxLength) + '...' : name;
 }
 
 // Main function to prepare the dataset
@@ -65,8 +71,8 @@ async function prepareDataset() {
           const label = tf.oneHot(catIndex, predefinedCategories.length + 1); // +1 for "other" category
           labels.push(label);
 
-          // Extract subcategory from filename
-          const subcategory = sanitizedFilename.split('_')[0]; // Adjust based on your naming convention
+          // Extract and truncate subcategory from filename
+          const subcategory = truncateName(sanitizedFilename.split('_')[0]);
           if (!labelMap[category].includes(subcategory)) {
             labelMap[category].push(subcategory);
           }
@@ -81,7 +87,7 @@ async function prepareDataset() {
         const label = tf.oneHot(predefinedCategories.length, predefinedCategories.length + 1);
         labels.push(label);
 
-        const subcategory = sanitizedFilename.split('_')[0];
+        const subcategory = truncateName(sanitizedFilename.split('_')[0]);
         if (!labelMap['other'].includes(subcategory)) {
           labelMap['other'].push(subcategory);
         }
