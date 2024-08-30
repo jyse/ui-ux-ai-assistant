@@ -1,5 +1,5 @@
-import * as tf from '@tensorflow/tfjs';
-import '@tensorflow/tfjs-node';  // This line loads the binding
+import * as tf from '@tensorflow/tfjs-node';
+import * as mobilenet from '@tensorflow-models/mobilenet';
 import fs from 'fs';
 import path from 'path';
 
