@@ -1,112 +1,94 @@
 import * as tf from '@tensorflow/tfjs-node';
-import * as mobilenet from '@tensorflow-models/mobilenet';
-import fs from 'fs';
+import * as fs from 'fs/promises';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Function to load and preprocess an image
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+
+
+// Configuration
+const CONFIG = {
+  datasetPath: path.join(__dirname, '..', '..', 'figma_components'),
+  imageSize: [224, 224],
+  trainRatio: 0.8,
+  batchSize: 32,
+  predefinedCategories: ['layouts', 'color_schemes', 'usability', 'ui_components']
+};
+
+// Utility Functions
+const sanitizeFilename = (filename) => filename.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+const truncateName = (name, maxLength = 20) => name.length > maxLength ? `${name.substring(0, maxLength)}...` : name;
+
+// Image Processing Functions
 async function loadImage(imagePath) {
-  const imageBuffer = fs.readFileSync(imagePath);
-  const tfImage = tf.node.decodeImage(imageBuffer);
-  return tfImage.resizeBilinear([224, 224]).toFloat().div(tf.scalar(255));
+  try {
+    const imageBuffer = await fs.readFile(imagePath);
+    const tfImage = tf.node.decodeImage(imageBuffer);
+    return tfImage.resizeBilinear(CONFIG.imageSize).toFloat().div(tf.scalar(255));
+  } catch (error) {
+    console.error(`Error loading image ${imagePath}:`, error.message);
+    return null;
+  }
 }
 
-// Function to get all files in a directory and its subdirectories
-function getAllFiles(dirPath, arrayOfFiles) {
-  const files = fs.readdirSync(dirPath);
-
-  arrayOfFiles = arrayOfFiles || [];
-
-  files.forEach(function(file) {
-    if (fs.statSync(dirPath + "/" + file).isDirectory()) {
-      arrayOfFiles = getAllFiles(dirPath + "/" + file, arrayOfFiles);
-    } else {
-      arrayOfFiles.push(path.join(dirPath, "/", file));
-    }
-  });
-
-  return arrayOfFiles;
+// File System Functions
+async function getAllFiles(dirPath) {
+  const entries = await fs.readdir(dirPath, { withFileTypes: true });
+  const files = await Promise.all(entries.map((entry) => {
+    const res = path.resolve(dirPath, entry.name);
+    return entry.isDirectory() ? getAllFiles(res) : res;
+  }));
+  return files.flat();
 }
 
-// Function to sanitize filename (similar to figmaFetcher.js)
-function sanitizeFilename(filename) {
-  return filename.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-}
-
-// Function to truncate long names
-function truncateName(name, maxLength = 20) {
-  return name.length > maxLength ? name.substring(0, maxLength) + '...' : name;
-}
-
-// Main function to prepare the dataset
+// Dataset Preparation Functions
 async function prepareDataset() {
-  const datasetPath = './figma_components'; // Update this path if necessary
-  const predefinedCategories = ['layouts', 'color_schemes', 'usability', 'ui_components'];
-  
-  let images = [];
-  let labels = [];
-  let labelMap = {};
+  const images = [];
+  const labels = [];
+  const labelMap = Object.fromEntries(CONFIG.predefinedCategories.map(cat => [cat, []]));
+  labelMap.other = [];
 
-  const allFiles = getAllFiles(datasetPath);
-  const pngFiles = allFiles.filter(file => file.toLowerCase().endsWith('.png'));
-
-  // Initialize labelMap with predefined categories
-  predefinedCategories.forEach(category => {
-    labelMap[category] = [];
-  });
-
-  // Add an "other" category for files that don't match predefined categories
-  labelMap['other'] = [];
+  const allFiles = await getAllFiles(CONFIG.datasetPath);
+  const pngFiles = allFiles.filter(file => path.extname(file).toLowerCase() === '.png');
 
   for (const file of pngFiles) {
-    try {
-      const image = await loadImage(file);
-      images.push(image);
+    const image = await loadImage(file);
+    if (!image) continue;
 
-      const sanitizedFilename = sanitizeFilename(path.basename(file));
-      let categoryFound = false;
+    images.push(image);
+    const sanitizedFilename = sanitizeFilename(path.basename(file));
+    let categoryFound = false;
 
-      for (let catIndex = 0; catIndex < predefinedCategories.length; catIndex++) {
-        const category = predefinedCategories[catIndex];
-        if (sanitizedFilename.includes(sanitizeFilename(category))) {
-          const label = tf.oneHot(catIndex, predefinedCategories.length + 1); // +1 for "other" category
-          labels.push(label);
-
-          // Extract and truncate subcategory from filename
-          const subcategory = truncateName(sanitizedFilename.split('_')[0]);
-          if (!labelMap[category].includes(subcategory)) {
-            labelMap[category].push(subcategory);
-          }
-
-          categoryFound = true;
-          break;
-        }
-      }
-
-      if (!categoryFound) {
-        // File doesn't match any predefined category, assign to "other"
-        const label = tf.oneHot(predefinedCategories.length, predefinedCategories.length + 1);
-        labels.push(label);
-
+    for (let catIndex = 0; catIndex < CONFIG.predefinedCategories.length; catIndex++) {
+      const category = CONFIG.predefinedCategories[catIndex];
+      if (sanitizedFilename.includes(sanitizeFilename(category))) {
+        labels.push(tf.oneHot(catIndex, CONFIG.predefinedCategories.length + 1));
         const subcategory = truncateName(sanitizedFilename.split('_')[0]);
-        if (!labelMap['other'].includes(subcategory)) {
-          labelMap['other'].push(subcategory);
+        if (!labelMap[category].includes(subcategory)) {
+          labelMap[category].push(subcategory);
         }
+        categoryFound = true;
+        break;
       }
-    } catch (error) {
-      console.error(`Error processing file ${file}:`, error.message);
+    }
+
+    if (!categoryFound) {
+      labels.push(tf.oneHot(CONFIG.predefinedCategories.length, CONFIG.predefinedCategories.length + 1));
+      const subcategory = truncateName(sanitizedFilename.split('_')[0]);
+      if (!labelMap.other.includes(subcategory)) {
+        labelMap.other.push(subcategory);
+      }
     }
   }
 
-  const xs = tf.stack(images);
-  const ys = tf.stack(labels);
-
-  return { xs, ys, labelMap };
+  return { xs: tf.stack(images), ys: tf.stack(labels), labelMap };
 }
 
-// Function to split data into training and validation sets
-function splitData(xs, ys, trainRatio = 0.8) {
+function splitData(xs, ys) {
   const numExamples = xs.shape[0];
-  const numTrainExamples = Math.round(numExamples * trainRatio);
+  const numTrainExamples = Math.round(numExamples * CONFIG.trainRatio);
   
   const trainXs = xs.slice([0, 0, 0, 0], [numTrainExamples, -1, -1, -1]);
   const trainYs = ys.slice([0, 0], [numTrainExamples, -1]);
@@ -117,16 +99,15 @@ function splitData(xs, ys, trainRatio = 0.8) {
   return { trainXs, trainYs, valXs, valYs };
 }
 
-// Function to create TensorFlow dataset
-function createDataset(xs, ys, batchSize = 32) {
+function createDataset(xs, ys) {
   return tf.data.zip({xs: tf.data.dataset(xs), ys: tf.data.dataset(ys)})
     .shuffle(1000)
-    .batch(batchSize);
+    .batch(CONFIG.batchSize);
 }
 
-// Main function to get the prepared dataset
-export async function getDataset(batchSize = 32) {
-  console.log('Preparing dataset...');
+// Main Function
+export async function getDataset() {
+  console.log('Preparing dataset... 🐛');
   const { xs, ys, labelMap } = await prepareDataset();
   console.log('Dataset prepared.');
 
@@ -135,20 +116,22 @@ export async function getDataset(batchSize = 32) {
   console.log('Data split complete.');
 
   console.log('Creating TensorFlow datasets...');
-  const trainDataset = createDataset(trainXs, trainYs, batchSize);
-  const valDataset = createDataset(valXs, valYs, batchSize);
+  const trainDataset = createDataset(trainXs, trainYs);
+  const valDataset = createDataset(valXs, valYs);
   console.log('TensorFlow datasets created.');
 
   return { trainDataset, valDataset, labelMap };
 }
 
-// If you want to test the script
+console.log("SCRIPT STARTING!!")
+// Script Execution
 if (import.meta.url === `file://${process.argv[1]}`) {
+  console.log("GETTING DATASET")
   getDataset().then(({ trainDataset, valDataset, labelMap }) => {
     console.log('Label Map:', labelMap);
     console.log('Training Dataset:', trainDataset);
     console.log('Validation Dataset:', valDataset);
   }).catch(error => {
-    console.error('Error:', error);
+    console.error('Error in dataset preparation:', error);
   });
 }
