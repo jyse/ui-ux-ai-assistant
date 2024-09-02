@@ -4,9 +4,9 @@ import fs from "fs";
 import path from "path";
 
 const FIGMA_TOKEN = "figd_IuXdq-DGsshLyBZx7Ql55eupeAlMZcghqb5ya1j-"; // Replace with your actual token
-// Lances: figd_TMbVw4dYNLB34g5PkjCG9wMs6LLyMGU-A74vP-eA
 const client = Client({ personalAccessToken: FIGMA_TOKEN });
 
+// Fetch the Figma file data
 async function getFigmaFile(fileKey) {
   try {
     const file = await client.file(fileKey);
@@ -17,9 +17,9 @@ async function getFigmaFile(fileKey) {
   }
 }
 
+// Fetch the image URLs for frames and components
 async function getImageUrls(fileKey, nodeIds) {
   try {
-    // Split nodeIds into chunks of 100 to avoid 414 errors
     const chunkSize = 100;
     const imageUrls = {};
     for (let i = 0; i < nodeIds.length; i += chunkSize) {
@@ -41,6 +41,7 @@ async function getImageUrls(fileKey, nodeIds) {
   }
 }
 
+// Download the image to the local file system
 async function downloadImage(url, filepath) {
   try {
     const response = await axios({
@@ -49,7 +50,6 @@ async function downloadImage(url, filepath) {
       responseType: "stream"
     });
 
-    // Ensure the directory exists
     await fs.promises.mkdir(path.dirname(filepath), { recursive: true });
 
     return new Promise((resolve, reject) => {
@@ -63,7 +63,8 @@ async function downloadImage(url, filepath) {
   }
 }
 
-async function processUIKit(fileId, outputDir) {
+// Process the Figma file to extract both wireframes and components
+async function processWireframesAndComponents(fileId, outputDir) {
   const file = await getFigmaFile(fileId);
   if (!file || !file.data || !file.data.document) {
     console.error(
@@ -72,52 +73,87 @@ async function processUIKit(fileId, outputDir) {
     return;
   }
 
+  const frames = [];
   const components = [];
+  const metadata = {
+    frames: [],
+    components: []
+  };
 
-  function traverse(node) {
-    if (node.type === "COMPONENT" || node.type === "INSTANCE") {
-      components.push(node);
-    } else if (node.children) {
-      node.children.forEach(traverse);
+  function traverse(node, parentFrameId = null) {
+    if (node.type === "FRAME" || node.type === "CANVAS") {
+      frames.push(node); // Collect frames representing full wireframes
+      metadata.frames.push({
+        id: node.id,
+        name: node.name,
+        absoluteBoundingBox: node.absoluteBoundingBox
+      });
+    } else if (node.type === "COMPONENT" || node.type === "INSTANCE") {
+      components.push({ ...node, parentFrameId }); // Collect components within the frame
+      metadata.components.push({
+        id: node.id,
+        name: node.name,
+        type: node.type,
+        parentFrameId: parentFrameId,
+        position: node.absoluteBoundingBox // Capture the position within the frame
+      });
+    }
+
+    if (node.children) {
+      node.children.forEach((child) => traverse(child, node.id));
     }
   }
 
   traverse(file.data.document);
 
-  if (components.length === 0) {
-    console.log(`No components found in file ${fileId}`);
+  if (frames.length === 0 && components.length === 0) {
+    console.log(`No frames or components found in file ${fileId}`);
     return;
   }
 
-  // Split nodeIds into smaller batches to avoid 413 and 414 errors
-  const batchSize = 50; // Adjust based on API limitations
-  for (let i = 0; i < components.length; i += batchSize) {
-    const batch = components.slice(i, i + batchSize);
-    const nodeIds = batch.map((c) => c.id);
-    const imageUrls = await getImageUrls(fileId, nodeIds);
+  // Process frames
+  const frameIds = frames.map((f) => f.id);
+  const frameImageUrls = await getImageUrls(fileId, frameIds);
 
-    if (!imageUrls) {
-      console.error(`Unable to fetch image URLs for file ${fileId}`);
-      return;
-    }
-
-    for (let j = 0; j < batch.length; j++) {
-      const component = batch[j];
-      const url = imageUrls[component.id];
-      if (!url) {
-        console.warn(`No image URL found for component ${component.name}`);
-        continue;
-      }
-      const filename = `${component.name.replace(/\s+/g, "_")}.png`;
-      const filepath = path.join(outputDir, filename);
-
+  for (const frame of frames) {
+    const url = frameImageUrls[frame.id];
+    if (url) {
+      const filename = `${frame.name.replace(/\s+/g, "_")}.png`;
+      const filepath = path.join(outputDir, "frames", filename);
       await downloadImage(url, filepath);
-      console.log(`Downloaded: ${filename}`);
+      console.log(`Downloaded frame: ${filename}`);
     }
   }
+
+  // Process components
+  const componentIds = components.map((c) => c.id);
+  const componentImageUrls = await getImageUrls(fileId, componentIds);
+
+  for (const component of components) {
+    const url = componentImageUrls[component.id];
+    if (url) {
+      const filename = `${component.name.replace(/\s+/g, "_")}_${
+        component.parentFrameId
+      }.png`;
+      const filepath = path.join(outputDir, "components", filename);
+      await downloadImage(url, filepath);
+      console.log(`Downloaded component: ${filename}`);
+    }
+  }
+
+  // Save metadata to a JSON file
+  const metadataFilePath = path.join(outputDir, "metadata.json");
+  fs.writeFileSync(metadataFilePath, JSON.stringify(metadata, null, 2));
+  console.log(`Metadata saved to ${metadataFilePath}`);
 }
 
+// List of Figma file keys to process
 const fileKeys = [
+  "GLP26PdcL7XC2qSJ5BXMhR",
+  "EWiSeqrxx0CHuYkPiC3x3K",
+  "BxkwMqpfms2RjrYPt7dyNr",
+  "EWiSeqrxx0CHuYkPiC3x3K",
+  "9HDtrhtrqrpiKDTps05S0L",
   "r0rkXHzWhWQF4fw951UUTM",
   "1nmPr3ZbIxiwyyYMiejyqS",
   "NEsdoTg6cmhsBO8SZ1LPcj",
@@ -128,16 +164,21 @@ const fileKeys = [
   "3Ubj0IUKgG8z5AopZJzrZD"
 ];
 
+// Directory to store the downloaded frames and components
 const outputDir = "./figma_components";
 
-async function fetchAllUIKits() {
+// Process all Figma files
+async function fetchAllWireframesAndComponents() {
   for (const fileKey of fileKeys) {
     console.log(`Processing Figma file: ${fileKey}`);
-    await processUIKit(fileKey, outputDir);
+    await processWireframesAndComponents(fileKey, outputDir);
   }
-  console.log("All UI kits processed");
+  console.log("All wireframes and components processed");
 }
 
-fetchAllUIKits().catch((error) => {
-  console.error("An error occurred while fetching UI kits:", error);
+fetchAllWireframesAndComponents().catch((error) => {
+  console.error(
+    "An error occurred while fetching wireframes and components:",
+    error
+  );
 });
