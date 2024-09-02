@@ -80,9 +80,51 @@ async function processWireframesAndComponents(fileId, outputDir) {
     components: []
   };
 
+  // Traverse Figma nodes to identify frames and components
   function traverse(node, parentFrameId = null) {
-    if (node.type === "FRAME" || node.type === "CANVAS") {
-      frames.push(node); // Collect frames representing full wireframes
+    const keyScreenNames = [
+      "Login",
+      "Dashboard",
+      "Signup",
+      "Auth Screen",
+      "Main Screen",
+      "Profile",
+      "Home",
+      "Search",
+      "Checkout",
+      "Welcome",
+      "WalkThrough",
+      "Help",
+      "Product",
+      "Messages/",
+      "Activity ",
+      "Favorites/",
+      "Gallery/",
+      "Map/",
+      "Search ",
+      "Order ",
+      "Review/",
+      "Notifications",
+      "Support",
+      "Item",
+      "Detail",
+      "Chat",
+      "Feed",
+      "Onboarding",
+      "Wishlist",
+      "Media",
+      "Location",
+      "Results",
+      "History",
+      "Subscription",
+      "Rating"
+    ];
+
+    if (
+      node.type === "FRAME" &&
+      keyScreenNames.some((name) => node.name.includes(name))
+    ) {
+      frames.push(node); // Assume this is a key screen
       metadata.frames.push({
         id: node.id,
         name: node.name,
@@ -107,7 +149,7 @@ async function processWireframesAndComponents(fileId, outputDir) {
   traverse(file.data.document);
 
   if (frames.length === 0 && components.length === 0) {
-    console.log(`No frames or components found in file ${fileId}`);
+    console.log(`No relevant frames or components found in file ${fileId}`);
     return;
   }
 
@@ -149,10 +191,9 @@ async function processWireframesAndComponents(fileId, outputDir) {
 
 // List of Figma file keys to process
 const fileKeys = [
+  "NFwM2NlCKOcezavU34df5W",
+  "2II6f7YhJNbnfsZ4Hjpdyf",
   "GLP26PdcL7XC2qSJ5BXMhR",
-  "EWiSeqrxx0CHuYkPiC3x3K",
-  "BxkwMqpfms2RjrYPt7dyNr",
-  "EWiSeqrxx0CHuYkPiC3x3K",
   "9HDtrhtrqrpiKDTps05S0L",
   "r0rkXHzWhWQF4fw951UUTM",
   "1nmPr3ZbIxiwyyYMiejyqS",
@@ -161,7 +202,8 @@ const fileKeys = [
   "eWBIN3iwIApgNcCq3MpWu0",
   "enUK2QmBWn8XIlqhI70Fqs",
   "jUUax5RKeO1S7Zf0CttAjy",
-  "3Ubj0IUKgG8z5AopZJzrZD"
+  "3Ubj0IUKgG8z5AopZJzrZD",
+  "MlbMyARbccwmrtAj9aefNZ"
 ];
 
 // Directory to store the downloaded frames and components
