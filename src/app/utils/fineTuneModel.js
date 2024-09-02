@@ -1,58 +1,90 @@
-import * as tf from '@tensorflow/tfjs-node'; // Use tfjs-node for better performance in Node.js
+import * as tf from '@tensorflow/tfjs-node';
 import * as mobilenet from '@tensorflow-models/mobilenet';
+import { getDataset } from './prepareData.js';
 
-// Create the fine-tuned model
+console.log('Starting fine-tuning process...');
+
 async function createFineTunedModel() {
-  // Load the MobileNet model without the top layer
-  const baseModel = await mobilenet.load({
-    version: 2, // You can specify version 1 or 2 of MobileNet
-    alpha: 1.0, // Alpha controls the width of the network, 1.0 is the standard size
-  });
+  try {
+    console.log('Loading MobileNet model...');
+    const baseModel = await mobilenet.load({
+      version: 2,
+      alpha: 1.0,
+    });
+    console.log('MobileNet model loaded.');
+    console.log('MobileNet Expected Input Shape:', [224, 224, 3]);
 
-  const model = tf.sequential();
+    // Define input tensor
+    const inputs = tf.input({ shape: [224, 224, 3] });
 
-  // Add the MobileNet model layers, excluding the top layer
-  baseModel.layers.slice(0, -1).forEach(layer => {
-    layer.trainable = false; // Freeze the weights of these layers
-    model.add(layer);
-  });
+    // Use the `infer` method instead of `predict`
+    const baseModelOutputs = baseModel.infer(inputs, { pooling: 'avg' });
 
-  // Add new layers for our specific task
-  model.add(tf.layers.flatten());
-  model.add(tf.layers.dense({ units: 128, activation: 'relu' }));
-  model.add(tf.layers.dropout({ rate: 0.5 })); // Add dropout to prevent overfitting
-  model.add(tf.layers.dense({ units: 64, activation: 'relu' }));
-  model.add(tf.layers.dense({ units: 9, activation: 'softmax' })); // 9 outputs for the 9 categories in your dataset
+    // Add custom layers on top of MobileNet
+    const flatten = tf.layers.flatten().apply(baseModelOutputs);
+    const dense1 = tf.layers.dense({ units: 128, activation: 'relu' }).apply(flatten);
+    const dropout = tf.layers.dropout({ rate: 0.5 }).apply(dense1);
+    const dense2 = tf.layers.dense({ units: 64, activation: 'relu' }).apply(dropout);
+    const outputs = tf.layers.dense({ units: 9, activation: 'softmax' }).apply(dense2);
 
-  return model;
+    // Create the final model
+    const model = tf.model({ inputs: inputs, outputs: outputs });
+    console.log('Custom layers added.');
+
+    return model;
+  } catch (error) {
+    console.error('Error during model creation:', error);
+    throw error;
+  }
 }
 
-// Fine-tune the model
 async function fineTuneModel(model, trainDataset, valDataset) {
-  model.compile({
-    optimizer: tf.train.adam(0.0001), // Lower learning rate for fine-tuning
-    loss: 'categoricalCrossentropy', // Suitable for multi-class classification
-    metrics: ['accuracy'],
-  });
+  try {
+    console.log('Compiling the model...');
+    model.compile({
+      optimizer: tf.train.adam(0.0001),
+      loss: 'categoricalCrossentropy',
+      metrics: ['accuracy'],
+    });
+    console.log('Model compiled.');
 
-  // Train the model
-  await model.fitDataset(trainDataset, {
-    epochs: 10,
-    batchSize: 32,
-    validationData: valDataset,
-    callbacks: {
-      onEpochEnd: (epoch, logs) => {
-        console.log(`Epoch ${epoch + 1}: Loss = ${logs.loss}, Accuracy = ${logs.acc}`);
+    console.log('Starting model training...');
+    await model.fitDataset(trainDataset, {
+      epochs: 10,
+      batchSize: 32,
+      validationData: valDataset,
+      callbacks: {
+        onEpochEnd: (epoch, logs) => {
+          console.log(`Epoch ${epoch + 1} completed: Loss = ${logs.loss.toFixed(4)}, Accuracy = ${(logs.acc * 100).toFixed(2)}%`);
+        }
       }
-    }
-  });
+    });
+    console.log('Model training completed.');
 
-  return model;
+    return model;
+  } catch (error) {
+    console.error('Error during model fine-tuning:', error);
+    throw error;
+  }
 }
 
-// Main function to create and fine-tune the model
 export async function createAndFineTuneModel(trainDataset, valDataset) {
-  const model = await createFineTunedModel();
-  const fineTunedModel = await fineTuneModel(model, trainDataset, valDataset);
-  return fineTunedModel;
+  try {
+    console.log('Creating and fine-tuning the model...');
+    const model = await createFineTunedModel();
+    const fineTunedModel = await fineTuneModel(model, trainDataset, valDataset);
+    console.log('Model fine-tuning completed.');
+    return fineTunedModel;
+  } catch (error) {
+    console.error('Error in the fine-tuning process:', error);
+  }
 }
+
+(async () => {
+  try {
+    const { trainDataset, valDataset } = await getDataset();
+    await createAndFineTuneModel(trainDataset, valDataset);
+  } catch (error) {
+    console.error('Error during fine-tuning process:', error);
+  }
+})();
