@@ -1,44 +1,45 @@
-import * as tf from '@tensorflow/tfjs';
-import * as mobilenet from '@tensorflow-models/mobilenet';
+import * as tf from "@tensorflow/tfjs-node";
+import * as mobilenet from "@tensorflow-models/mobilenet";
+import { getDataset } from "./prepareData.js";
 
-async function createFineTunedModel() {
-  const baseModel = await mobilenet.load();
-  
-  const model = tf.sequential();
-  
-  // Add the MobileNet model layers, excluding the top layer
-  baseModel.layers.slice(0, -1).forEach(layer => {
-    layer.trainable = false;  // Freeze the weights of these layers
-    model.add(layer);
-  });
-  
-  // Add new layers for our specific task
-  model.add(tf.layers.dense({units: 64, activation: 'relu'}));
-  model.add(tf.layers.dense({units: 3, activation: 'softmax'}));  // 3 outputs for layout, color scheme, usability
-  
-  return model;
-}
+console.log("Starting fine-tuning process...");
 
-// Fine-tune the model
-async function fineTuneModel(model, dataset) {
-  model.compile({
-    optimizer: tf.train.adam(0.0001),
-    loss: 'categoricalCrossentropy',
-    metrics: ['accuracy']
-  });
-  
-  await model.fit(dataset.xs, dataset.ys, {
-    epochs: 10,
-    batchSize: 32,
-    validationSplit: 0.2
-  });
-  
-  return model;
-}
+export async function fineTuneModel() {
+  try {
+    console.log("Loading MobileNet model...");
+    const baseModel = await mobilenet.load({
+      version: 2,
+      alpha: 1.0
+    });
+    console.log("MobileNet model loaded.");
+    console.log("MobileNet Expected Input Shape:", [224, 224, 3]);
 
-// Main function to create and fine-tune the model
-export async function createAndFineTuneModel(dataset) {
-  const model = await createFineTunedModel();
-  const fineTunedModel = await fineTuneModel(model, dataset);
-  return fineTunedModel;
+    // Define input tensor
+    const inputs = tf.input({ shape: [224, 224, 3] });
+
+    // Use the `infer` method instead of `predict`
+    const baseModelOutputs = baseModel.infer(inputs, { pooling: "avg" });
+
+    // Add custom layers on top of MobileNet
+    const flatten = tf.layers.flatten().apply(baseModelOutputs);
+    const dense1 = tf.layers
+      .dense({ units: 128, activation: "relu" })
+      .apply(flatten);
+    const dropout = tf.layers.dropout({ rate: 0.5 }).apply(dense1);
+    const dense2 = tf.layers
+      .dense({ units: 64, activation: "relu" })
+      .apply(dropout);
+    const outputs = tf.layers
+      .dense({ units: 9, activation: "softmax" })
+      .apply(dense2);
+
+    // Create the final model
+    const model = tf.model({ inputs: inputs, outputs: outputs });
+    console.log("Custom layers added.");
+
+    return model;
+  } catch (error) {
+    console.error("Error during model creation:", error);
+    throw error;
+  }
 }
