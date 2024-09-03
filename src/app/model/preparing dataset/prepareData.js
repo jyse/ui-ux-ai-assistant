@@ -24,8 +24,8 @@ function getSubdirectories(directoryPath) {
 }
 
 // Main function to prepare the dataset
-async function prepareDataset() {
-  const datasetPath = "path/to/your/dataset";
+export async function prepareDataset() {
+  const datasetPath = "path/to/your/dataset"; // Replace with your actual dataset path
   const categories = ["layouts", "color_schemes", "usability", "ui_components"];
 
   let images = [];
@@ -105,17 +105,4 @@ export async function getDataset(batchSize = 32) {
   console.log("TensorFlow datasets created.");
 
   return { trainDataset, valDataset, labelMap };
-}
-
-// If you want to test the script
-if (require.main === module) {
-  getDataset()
-    .then(({ trainDataset, valDataset, labelMap }) => {
-      console.log("Label Map:", labelMap);
-      console.log("Training Dataset:", trainDataset);
-      console.log("Validation Dataset:", valDataset);
-    })
-    .catch((error) => {
-      console.error("Error:", error);
-    });
 }
