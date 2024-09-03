@@ -1,189 +1,232 @@
 import * as tf from '@tensorflow/tfjs-node';
-import * as fs from 'fs/promises';
+import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+console.log('Script loaded');
 
-console.log('Script started');
+// Function to sanitize filenames
+function sanitizeFilename(filename) {
+  return filename.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+}
 
-// Configuration
-const CONFIG = {
-  datasetPath: path.join(__dirname, '..', '..', 'figma_components'),
-  imageSize: [224, 224],
-  trainRatio: 0.8,
-  batchSize: 8,
-  categories: {
-    layouts: ['balanced', 'asymmetric', 'cluttered'],
-    color_schemes: ['harmonious', 'contrasting', 'monotonous'],
-    usability: ['good', 'average', 'poor'],
-    ui_components: ['buttons', 'forms', 'navigation']
-  }
-};
+// Function to read and parse metadata
+function readMetadata(metadataPath) {
+  console.log(`Reading metadata from: ${metadataPath}`);
+  const rawData = fs.readFileSync(metadataPath);
+  return JSON.parse(rawData);
+}
 
-console.log('Configuration set:', CONFIG);
-
-// Image Processing Functions
+// Function to load and preprocess an image
 async function loadImage(imagePath) {
   try {
-    const imageBuffer = await fs.readFile(imagePath);
-    let tfImage;
-    
-    if (imagePath.toLowerCase().endsWith('.png')) {
-      tfImage = tf.node.decodePng(imageBuffer, 3); // Force 3 channels
-    } else if (imagePath.toLowerCase().endsWith('.jpg') || imagePath.toLowerCase().endsWith('.jpeg')) {
-      tfImage = tf.node.decodeJpeg(imageBuffer, 3); // Force 3 channels
-    } else {
-      console.warn(`Unsupported image format for file: ${imagePath}`);
-      return null;
+    console.log(`Loading image: ${imagePath}`);
+    const imageBuffer = fs.readFileSync(imagePath);
+    let tfImage = tf.node.decodeImage(imageBuffer);
+
+    // Remove alpha channel if present
+    if (tfImage.shape[2] === 4) {
+      tfImage = tfImage.slice([0, 0, 0], [-1, -1, 3]);
     }
-    
-    const resizedImage = tf.image.resizeBilinear(tfImage, CONFIG.imageSize);
-    const normalizedImage = resizedImage.toFloat().div(tf.scalar(255));
-    
-    console.log(`Successfully loaded image: ${imagePath}`);
-    console.log(`Image shape: ${normalizedImage.shape}`);
-    return normalizedImage;
+
+    // Ensure the image has 4 dimensions: [batch_size, height, width, channels]
+    return tfImage.resizeBilinear([224, 224]).toFloat().div(tf.scalar(255)).expandDims(0);
   } catch (error) {
-    console.warn(`Error loading image ${imagePath}: ${error.message}`);
+    console.error(`Error loading image ${imagePath}:`, error.message);
     return null;
   }
 }
 
-// File System Functions
-async function getAllFiles(dirPath) {
-  console.log(`Scanning directory: ${dirPath}`);
-  try {
-    const entries = await fs.readdir(dirPath, { withFileTypes: true });
-    const files = await Promise.all(entries.map((entry) => {
-      const res = path.resolve(dirPath, entry.name);
-      return entry.isDirectory() ? getAllFiles(res) : res;
-    }));
-    return files.flat();
-  } catch (error) {
-    console.error(`Error scanning directory ${dirPath}:`, error.message);
-    return [];
-  }
+// Function to categorize component
+function categorizeComponent(component) {
+  const name = component.name.toLowerCase();
+  if (name.includes('button')) return 'button';
+  if (name.includes('input') || name.includes('field')) return 'input';
+  if (name.includes('nav') || name.includes('menu')) return 'navigation';
+  if (name.includes('card') || name.includes('container')) return 'container';
+  if (name.includes('icon') || name.includes('image')) return 'visual';
+  return 'other';
 }
 
-// Labeling Function
-function getLabelFromFilepath(filepath) {
-  const category = path.basename(path.dirname(filepath)); // Get the category (e.g., 'balanced', 'harmonious')
-  const mainCategory = path.basename(path.dirname(path.dirname(filepath))); // Get the main category (e.g., 'layouts', 'color_schemes')
-
-  const categoryIndex = CONFIG.categories[mainCategory].indexOf(category);
-  const mainCategoryIndex = Object.keys(CONFIG.categories).indexOf(mainCategory);
-
-  if (mainCategoryIndex >= 0 && categoryIndex >= 0) {
-    const labelArray = new Array(Object.keys(CONFIG.categories).length).fill(0);
-    labelArray[mainCategoryIndex] = 1; // One-hot encoding for the main category
-
-    return tf.tensor1d(labelArray, 'int32');
-  } else {
-    console.warn(`Unable to assign label for file: ${filepath}`);
-    return null;
-  }
+// Function to analyze frame layout
+function analyzeFrameLayout(frame) {
+  const { width, height } = frame.absoluteBoundingBox;
+  if (Math.abs(width - height) < 50) return 'square';
+  return width > height ? 'landscape' : 'portrait';
 }
 
-// Data Generator
-async function* dataGenerator(files, batchSize) {
-  for (let i = 0; i < files.length; i += batchSize) {
-    const batch = files.slice(i, i + batchSize);
-    const images = [];
-    const labels = [];
-    
-    for (const file of batch) {
-      const image = await loadImage(file);
-      const label = getLabelFromFilepath(file);
-      
-      if (image && label) {
-        images.push(image);
-        labels.push(label);
-      } else {
-        console.warn(`Skipping file due to loading or labeling issue: ${file}`);
-      }
-    }
-    
-    if (images.length > 0) {
-      yield {
-        xs: tf.stack(images),
-        ys: tf.stack(labels)
-      };
-    }
-
-    console.log('Memory usage:', tf.memory().numBytes, 'bytes');
+// Function to pad the frame layout labels to match the length of component type labels
+function padLabel(label, targetLength) {
+  const paddingLength = targetLength - label.shape[0];
+  if (paddingLength > 0) {
+    // Ensure padding tensor is of the same type as the label tensor
+    const padding = tf.zeros([paddingLength], label.dtype);
+    return tf.concat([label, padding]);
   }
+  return label;
 }
 
-// Dataset Preparation Function
+// Main function to prepare the dataset
 async function prepareDataset() {
-  console.log('Preparing dataset...');
-  const allFiles = await getAllFiles(CONFIG.datasetPath);
-  const validImageFiles = allFiles.filter(file => 
-    file.toLowerCase().endsWith('.png') || 
-    file.toLowerCase().endsWith('.jpg') || 
-    file.toLowerCase().endsWith('.jpeg')
-  );
-  console.log(`Valid image files found: ${validImageFiles.length}`);
-
-  const numTrainExamples = Math.round(validImageFiles.length * CONFIG.trainRatio);
-  const trainFiles = validImageFiles.slice(0, numTrainExamples);
-  const valFiles = validImageFiles.slice(numTrainExamples);
-
-  const trainGenerator = dataGenerator(trainFiles, CONFIG.batchSize);
-  const valGenerator = dataGenerator(valFiles, CONFIG.batchSize);
-
-  return {
-    trainDataset: tf.data.generator(async function* () {
-      try {
-        for await (const batch of trainGenerator) {
-          yield batch;
-        }
-      } catch (error) {
-        console.error('Error in train data generator:', error);
-      }
-    }),
-    valDataset: tf.data.generator(async function* () {
-      try {
-        for await (const batch of valGenerator) {
-          yield batch;
-        }
-      } catch (error) {
-        console.error('Error in validation data generator:', error);
-      }
-    }),
-    numTrainExamples,
-    numValExamples: validImageFiles.length - numTrainExamples
-  };
-}
-
-// Main Function
-export async function getDataset() {
-  console.log('getDataset function called');
+  console.log('Starting to prepare dataset...');
+  const datasetPath = path.resolve(process.cwd(), 'figma_components');
+  const metadataPath = path.join(datasetPath, 'metadata.json');
+  console.log(`Looking for metadata at: ${metadataPath}`);
+  
+  let metadata;
   try {
-    const { trainDataset, valDataset, numTrainExamples, numValExamples } = await prepareDataset();
-    console.log('Dataset prepared successfully.');
-    console.log(`Training examples: ${numTrainExamples}, Validation examples: ${numValExamples}`);
-    return { trainDataset, valDataset };
+    metadata = readMetadata(metadataPath);
+    console.log('Metadata read successfully');
   } catch (error) {
-    console.error('Error in dataset preparation:', error);
-    throw error;
+    console.error('Error reading metadata:', error);
+    return null;
+  }
+
+  let images = [];
+  let labels = [];
+  let labelMap = {
+    componentType: ['button', 'input', 'navigation', 'container', 'visual', 'other'],
+    frameLayout: ['square', 'landscape', 'portrait']
+  };
+
+  console.log('Processing frames...');
+  for (const frame of metadata.frames) {
+    const imagePath = path.join(datasetPath, 'frames', `${sanitizeFilename(frame.name)}.png`);
+    const image = await loadImage(imagePath);
+    if (image) {
+      const layoutLabel = analyzeFrameLayout(frame);
+      if (layoutLabel !== -1) {
+        images.push(image);
+        let oneHotLabel = tf.oneHot(labelMap.frameLayout.indexOf(layoutLabel), labelMap.frameLayout.length);
+        oneHotLabel = padLabel(oneHotLabel, labelMap.componentType.length);  // Extend the label to match componentType length
+        console.log(`Frame label shape: ${oneHotLabel.shape}`);
+        labels.push(oneHotLabel);
+      } else {
+        console.warn(`Invalid frame layout label for image: ${imagePath}`);
+      }
+    } else {
+      console.warn(`Failed to load image: ${imagePath}`);
+    }
+  }
+
+  console.log('Processing components...');
+  for (const component of metadata.components) {
+    const imagePath = path.join(datasetPath, 'components', `${sanitizeFilename(component.name)}_${sanitizeFilename(component.parentFrameId)}.png`);
+    const image = await loadImage(imagePath);
+    if (image) {
+      const componentType = categorizeComponent(component);
+      if (componentType !== -1) {
+        images.push(image);
+        const oneHotLabel = tf.oneHot(labelMap.componentType.indexOf(componentType), labelMap.componentType.length);
+        console.log(`Component label shape: ${oneHotLabel.shape}`);
+        labels.push(oneHotLabel);
+      } else {
+        console.warn(`Invalid component label for image: ${imagePath}`);
+      }
+    } else {
+      console.warn(`Failed to load image: ${imagePath}`);
+    }
+  }
+
+  console.log(`Total images processed: ${images.length}`);
+  console.log(`Total labels processed: ${labels.length}`);
+
+  if (images.length === 0 || labels.length === 0) {
+    console.error('No images or labels processed successfully. Exiting.');
+    return null;
+  }
+
+  if (images.length !== labels.length) {
+    console.error('Mismatch between the number of images and labels. Exiting.');
+    return null;
+  }
+
+  try {
+    const xs = tf.concat(images);
+    console.log(`Shape of xs after concatenation: ${xs.shape}`);
+
+    const ys = tf.concat(labels);
+    console.log(`Shape of ys after concatenation: ${ys.shape}`);
+
+    // Reshape ys to [labels.length, 6] (since all labels are one-hot encoded with a length of 6)
+    const ysReshaped = ys.reshape([labels.length, 6]);
+    console.log(`Shape of ys after reshaping: ${ysReshaped.shape}`);
+
+    return { xs, ys: ysReshaped, labelMap };
+  } catch (error) {
+    console.error('Error during concatenation or reshaping:', error.message);
+    return null;
   }
 }
 
-// Script Execution
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  console.log("Starting dataset preparation...");
-  getDataset().then(({ trainDataset, valDataset }) => {
-    console.log('Dataset preparation completed successfully');
-    console.log('Training Dataset:', trainDataset);
-    console.log('Validation Dataset:', valDataset);
-  }).catch(error => {
-    console.error('Error in dataset preparation:', error);
+// Function to fine-tune MobileNet
+async function fineTuneModel(xs, ys, labelMap) {
+  console.log('Loading MobileNetV1 model...');
+  
+  const mobilenet = await tf.loadLayersModel('https://storage.googleapis.com/tfjs-models/tfjs/mobilenet_v1_1.0_224/model.json');
+  
+  // Remove the last layer of MobileNetV1 (the classification layer)
+  const truncatedMobilenet = tf.model({ inputs: mobilenet.inputs, outputs: mobilenet.layers[mobilenet.layers.length - 4].output });
+  
+  // Freeze the MobileNetV1 layers to prevent them from being retrained
+  for (const layer of truncatedMobilenet.layers) {
+    layer.trainable = false;
+  }
+
+  const model = tf.sequential();
+  model.add(tf.layers.inputLayer({ inputShape: [224, 224, 3] }));
+  model.add(truncatedMobilenet);
+  model.add(tf.layers.flatten());
+  model.add(tf.layers.dense({ units: 128, activation: 'relu' }));
+  model.add(tf.layers.dropout({ rate: 0.5 }));
+
+  // Determine total number of classes (use both componentType and frameLayout lengths)
+  const totalClasses = Math.max(labelMap.frameLayout.length, labelMap.componentType.length); // Use the maximum
+  console.log(`Total classes (units): ${totalClasses}`);
+  model.add(tf.layers.dense({ units: totalClasses, activation: 'softmax' }));
+
+  model.compile({
+    optimizer: tf.train.adam(),
+    loss: 'categoricalCrossentropy',
+    metrics: ['accuracy']
   });
-} else {
-  console.log("Module imported, not running dataset preparation.");
+
+  console.log('Fine-tuning the model...');
+  try {
+    await model.fit(xs, ys, {
+      epochs: 10,
+      validationSplit: 0.2,
+      callbacks: tf.node.tensorBoard('./logs')
+    });
+    console.log('Model fine-tuning complete.');
+    return model;
+  } catch (error) {
+    console.error('Error during model fitting:', error.message);
+    return null;
+  }
 }
 
-console.log('Script execution check complete');
+// Main execution
+console.log("Script started");
+(async () => {
+  try {
+    const preparedData = await prepareDataset();
+    if (preparedData) {
+      const { xs, ys, labelMap } = preparedData;
+      console.log('Dataset prepared.');
+
+      const model = await fineTuneModel(xs, ys, labelMap);
+      if (model) {
+        await model.save('file://./model');
+        console.log('Model saved.');
+      } else {
+        console.error('Model not saved due to errors.');
+      }
+    } else {
+      console.error('Failed to prepare dataset.');
+    }
+  } catch (error) {
+    console.error('Error:', error);
+  }
+})();
+
+console.log('Script reached the end');
