@@ -1,6 +1,7 @@
 {
   "name": "ui-ux-ai-assistant",
   "version": "0.1.0",
+  "type": "module",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -10,6 +11,7 @@
   },
   "dependencies": {
     "@tensorflow-models/mobilenet": "^2.1.1",
+    "@tensorflow/tfjs": "^4.20.0",
     "@tensorflow/tfjs-node": "^4.20.0",
     "axios": "^1.7.5",
     "figma-js": "^1.16.1-0",
@@ -18,7 +20,6 @@
     "react-dom": "^18",
     "sharp": "^0.33.5"
   },
-  "type": "module",
   "devDependencies": {
     "eslint": "^8",
     "eslint-config-next": "14.2.7"
