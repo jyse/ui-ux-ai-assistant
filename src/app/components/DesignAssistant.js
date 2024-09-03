@@ -1,13 +1,21 @@
-'use client'
+"use client";
 
-import React, { useState } from 'react';
-import Image from 'next/image';
-import { analyzeDesign } from '../utils/designAnalysis';
-import { generateFeedback } from '../utils/openAIFeedback';
+import React, { useState } from "react";
+import Image from "next/image";
+import { analyzeDesign } from "../services/designAnalysis";
+import { generateFeedback } from "../services/openAIFeedback";
+
+// Code Overview:
+// Implement file upload functionality.
+// Capture and store the image data.
+// Trigger the design analysis process upon image upload.
+
+/// process - from openAIFeedback
+// => Display the generated feedback on the UI so the user can understand how their design was analyzed and what improvements are suggested.
 
 const DesignAssistant = () => {
   const [selectedImage, setSelectedImage] = useState(null);
-  const [feedback, setFeedback] = useState('');
+  const [feedback, setFeedback] = useState("");
 
   const handleImageChange = (event) => {
     const file = event.target.files[0];

@@ -1,0 +1,78 @@
+Workflow 1: Training the Existing MobileNet Model
+This workflow is about taking the existing MobileNet model, fine-tuning it with your dataset, and saving the trained model for later use.
+
+High-Level Overview:
+Preparing the Dataset:
+
+File: prepareData.js
+Code Overview:
+Load and preprocess images from your dataset.
+Organize images and labels into tensors (xs and ys).
+Split the dataset into training and validation sets.
+Return the datasets for training.
+Fine-Tuning the MobileNet Model:
+
+File: fineTuneModel.js
+Code Overview:
+Load the pre-trained MobileNet model.
+Freeze the layers of the model that you don’t want to retrain.
+Add custom layers on top of MobileNet to adapt it to your specific task.
+Compile the model with appropriate loss functions and optimizers.
+Train the model using the prepared dataset.
+Save the trained model to disk for later use.
+Saving the Trained Model:
+
+File: fineTuneModel.js
+Code Overview:
+Use TensorFlow.js functions like model.save('path_to_save_model') to save the trained model.
+Workflow 2: User Uploading an Image, AI Analyzing It, and Giving Feedback
+This workflow covers the entire user interaction process, from uploading an image to receiving AI-generated feedback.
+
+High-Level Overview:
+User Uploads an Image:
+
+File: DesignAssistant.js
+Code Overview:
+Implement file upload functionality.
+Capture and store the image data.
+Trigger the design analysis process upon image upload.
+Loading the Pre-Trained Model:
+
+File: model/loading/ (could be a new script like loadModel.js)
+Code Overview:
+Load the pre-trained and fine-tuned MobileNet model from disk using tf.loadLayersModel('path_to_saved_model').
+Ensure that the model is loaded only once and reused for subsequent analyses.
+AI Analyzing the Image:
+
+File: designAnalysis.js
+Code Overview:
+Preprocess the uploaded image to match the input format expected by the MobileNet model (resize, normalize, etc.).
+Run the image through the loaded model using model.predict(tensor).
+Collect and interpret the model’s output.
+Generating Feedback:
+
+File: openAIFeedback.js
+Code Overview:
+Take the output from the analysis (e.g., layout, color scheme, usability scores).
+Generate feedback based on the analysis, possibly with a simple template or an OpenAI API call for more advanced feedback.
+Return the feedback to be displayed to the user.
+Displaying the Feedback:
+
+File: DesignAssistant.js
+Code Overview:
+Display the generated feedback on the UI so the user can understand how their design was analyzed and what improvements are suggested.
+Summary of Key Files and Their Roles:
+prepareData.js: Prepares your dataset, including preprocessing images and splitting into training/validation sets.
+fineTuneModel.js: Fine-tunes the MobileNet model with your dataset and saves the trained model.
+DesignAssistant.js: Handles user interactions, like image uploads, and displays feedback.
+model/loading/: Contains the logic to load the pre-trained and fine-tuned model.
+designAnalysis.js: Uses the loaded model to analyze uploaded images.
+openAIFeedback.js: Generates feedback based on the model’s analysis.
+This overview should help you start writing the code for each part of your app. If you have specific questions about any of these steps, feel free to ask!
+
+
+
+
+
+
+
