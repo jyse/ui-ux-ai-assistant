@@ -40,3 +40,9 @@ src/app/utils/figma_components/
 
 # Ignore the figma_components folder
 src/figma_components/
+
+# Ignore the archive folder
+archive/
+
+# Ignore the data folder
+data/
