@@ -1,108 +1,78 @@
-import * as tf from "@tensorflow/tfjs-node";
-import fs from "fs";
-import path from "path";
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { sanitizeFilename, readMetadata, categorizeComponent, analyzeFrameLayout } from './helpers.js';
 
-// Code Overview:
-// Load and preprocess images from your dataset.
-// Organize images and labels into tensors (xs and ys).
-// Split the dataset into training and validation sets.
-// Return the datasets for training.
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// Function to load and preprocess an image
-async function loadImage(imagePath) {
-  const imageBuffer = fs.readFileSync(imagePath);
-  const tfImage = tf.node.decodeImage(imageBuffer);
-  return tfImage.resizeBilinear([224, 224]).toFloat().div(tf.scalar(255));
-}
+// Correct path to the dataset
+const datasetPath = path.resolve(__dirname, '..', '..', '..', '..', 'data', 'figma_components');
 
-// Function to get all subdirectories in a directory
-function getSubdirectories(directoryPath) {
-  return fs
-    .readdirSync(directoryPath, { withFileTypes: true })
-    .filter((dirent) => dirent.isDirectory())
-    .map((dirent) => dirent.name);
-}
-
-// Main function to prepare the dataset
 export async function prepareDataset() {
-  const datasetPath = "path/to/your/dataset"; // Replace with your actual dataset path
-  const categories = ["layouts", "color_schemes", "usability", "ui_components"];
-
-  let images = [];
-  let labels = [];
-  let labelMap = {};
-
-  for (let catIndex = 0; catIndex < categories.length; catIndex++) {
-    const category = categories[catIndex];
-    const categoryPath = path.join(datasetPath, category);
-    const subCategories = getSubdirectories(categoryPath);
-
-    labelMap[category] = subCategories;
-
-    for (
-      let subCatIndex = 0;
-      subCatIndex < subCategories.length;
-      subCatIndex++
-    ) {
-      const subCategory = subCategories[subCatIndex];
-      const subCategoryPath = path.join(categoryPath, subCategory);
-      const files = fs
-        .readdirSync(subCategoryPath)
-        .filter((file) => file.endsWith(".png") || file.endsWith(".jpg"));
-
-      for (const file of files) {
-        const imagePath = path.join(subCategoryPath, file);
-        const image = await loadImage(imagePath);
-        images.push(image);
-
-        const label = tf.oneHot(subCatIndex, subCategories.length);
-        labels.push(label);
-      }
-    }
+  console.log('Starting to prepare dataset...');
+  const metadataPath = path.join(datasetPath, 'metadata.json');
+  console.log(`Looking for metadata at: ${metadataPath}`);
+  
+  let metadata;
+  try {
+    // Read and parse the metadata JSON file
+    metadata = readMetadata(metadataPath);
+    console.log('Metadata read successfully');
+  } catch (error) {
+    console.error('Error reading metadata:', error);
+    return null;
   }
 
-  const xs = tf.stack(images);
-  const ys = tf.stack(labels);
+  let frameData = [];
+  let componentData = [];
 
-  return { xs, ys, labelMap };
+  console.log('Processing frames...');
+  // Iterate through each frame in the metadata
+  for (const frame of metadata.frames) {
+    // Construct the path to the frame image
+    const imagePath = path.join(datasetPath, 'frames', `${sanitizeFilename(frame.name)}.png`);
+    // Analyze the frame layout (square, landscape, or portrait)
+    const layoutLabel = analyzeFrameLayout(frame);
+    // Add frame data to the array
+    frameData.push({ imagePath, label: layoutLabel, type: 'frame' });
+  }
+
+  console.log('Processing components...');
+  // Iterate through each component in the metadata
+  for (const component of metadata.components) {
+    // Construct the path to the component image
+    const imagePath = path.join(datasetPath, 'components', `${sanitizeFilename(component.name)}_${sanitizeFilename(component.parentFrameId)}.png`);
+    // Categorize the component (button, input, navigation, etc.)
+    const componentType = categorizeComponent(component);
+    // Add component data to the array
+    componentData.push({ imagePath, label: componentType, type: 'component' });
+  }
+
+  console.log(`Total frames processed: ${frameData.length}`);
+  console.log(`Total components processed: ${componentData.length}`);
+
+  return { frameData, componentData };
 }
 
-// Function to split data into training and validation sets
-function splitData(xs, ys, trainRatio = 0.8) {
-  const numExamples = xs.shape[0];
-  const numTrainExamples = Math.round(numExamples * trainRatio);
+// Define the label mappings for components and frame layouts
+export const labelMap = {
+  componentType: ['button', 'input', 'navigation', 'container', 'visual', 'other'],
+  frameLayout: ['square', 'landscape', 'portrait']
+};
 
-  const trainXs = xs.slice([0, 0, 0, 0], [numTrainExamples, -1, -1, -1]);
-  const trainYs = ys.slice([0, 0], [numTrainExamples, -1]);
-
-  const valXs = xs.slice([numTrainExamples, 0, 0, 0], [-1, -1, -1, -1]);
-  const valYs = ys.slice([numTrainExamples, 0], [-1, -1]);
-
-  return { trainXs, trainYs, valXs, valYs };
+// Main function to run when this script is executed directly
+async function main() {
+  console.log('prepareData SCRIPT is starting');
+  const { frameData, componentData } = await prepareDataset();
+  console.log('Data preparation complete.');
+  console.log(`Processed ${frameData.length} frames and ${componentData.length} components.`);
+  
+  // Optionally, you can save this data to a file for use in preProcessing.js
+  const outputPath = path.join(__dirname, 'prepared_data.json');
+  fs.writeFileSync(outputPath, JSON.stringify({ frameData, componentData, labelMap }));
+  console.log(`Prepared data saved to ${outputPath}`);
 }
 
-// Function to create TensorFlow dataset
-function createDataset(xs, ys, batchSize = 32) {
-  return tf.data
-    .zip({ xs: tf.data.dataset(xs), ys: tf.data.dataset(ys) })
-    .shuffle(1000)
-    .batch(batchSize);
-}
-
-// Main function to get the prepared dataset
-export async function getDataset(batchSize = 32) {
-  console.log("Preparing dataset...");
-  const { xs, ys, labelMap } = await prepareDataset();
-  console.log("Dataset prepared.");
-
-  console.log("Splitting data into training and validation sets...");
-  const { trainXs, trainYs, valXs, valYs } = splitData(xs, ys);
-  console.log("Data split complete.");
-
-  console.log("Creating TensorFlow datasets...");
-  const trainDataset = createDataset(trainXs, trainYs, batchSize);
-  const valDataset = createDataset(valXs, valYs, batchSize);
-  console.log("TensorFlow datasets created.");
-
-  return { trainDataset, valDataset, labelMap };
-}
+// Run the main function
+main().catch(console.error);
