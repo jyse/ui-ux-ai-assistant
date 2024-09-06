@@ -281,7 +281,7 @@ function organizeFiles() {
   console.log('Files organized and labels generated successfully');
 }
 
-organizeFiles();
+organizeFiles();x
 ```
 
 ### **Final Steps:**

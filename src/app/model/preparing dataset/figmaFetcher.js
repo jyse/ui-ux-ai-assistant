@@ -7,10 +7,22 @@ const FIGMA_TOKEN = "figd_IuXdq-DGsshLyBZx7Ql55eupeAlMZcghqb5ya1j-"; // Replace 
 const client = Client({ personalAccessToken: FIGMA_TOKEN });
 
 // Directories for storing data
+const dataDir = "./data";
 const keyScreensDir = "./data/key_screens";
 const uiComponentsDir = "./data/ui_components";
 const keyScreenLabelsFile = "./data/keyScreenTrainlabels.json";
 const componentLabelsFile = "./data/componentsTrainlabels.json";
+
+// Ensure the directories exist
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir);
+}
+if (!fs.existsSync(keyScreensDir)) {
+  fs.mkdirSync(keyScreensDir);
+}
+if (!fs.existsSync(uiComponentsDir)) {
+  fs.mkdirSync(uiComponentsDir);
+}
 
 // Initial label objects
 let keyScreenLabels = {};
@@ -38,8 +50,10 @@ if (fs.existsSync(componentLabelsFile)) {
 // Function to fetch and process the Figma file
 async function processFigmaFile(fileKey) {
   const file = await client.file(fileKey);
+  // console.log(file, "🐲 Are we getting file? 🔥🔥🔥🔥🔥");
   const { document } = file.data;
 
+  // console.log(document, "are we getting document 🍬🍬🍬🍬");
   traverseNodes(document);
 
   // Save updated labels
@@ -139,7 +153,15 @@ function isKeyScreen(node) {
 
 // Check if a node is a UI component
 function isComponent(node) {
-  const componentTypes = ["Button", "Icon", "Input", "Dropdown"];
+  const componentTypes = [
+    "Button",
+    "Icon",
+    "Input",
+    "Dropdown",
+    "Arrow",
+    "Navbar",
+    "Menu"
+  ];
   return (
     node.type === "COMPONENT" ||
     (node.type === "INSTANCE" &&
