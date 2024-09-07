@@ -36,7 +36,7 @@ yarn-error.log*
 next-env.d.ts
 
 # Ignore the figma_components folder
-src/app/utils/figma_components/
+src/app/data/figma_components/
 
 # Ignore the figma_components folder
 src/figma_components/
