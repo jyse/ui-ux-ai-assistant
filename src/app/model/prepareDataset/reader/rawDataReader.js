@@ -37,13 +37,22 @@ function main() {
   );
   const result = readDirectoryRecursive(dataPath);
 
-  // Save the output to a text file
+  // Save the output to a new folder "rawFile"
   const outputPath = path.resolve(
     __dirname,
-    "../../../../../data/raw/materialdesign/materialdesign_structure.txt"
+    "../../../../../data/rawFile/materialdesign_structure.txt"
   );
+
+  // Ensure the parent directory exists
+  const parentDir = path.dirname(outputPath);
+  if (!fs.existsSync(parentDir)) {
+    fs.mkdirSync(parentDir, { recursive: true });
+  }
+
   fs.writeFileSync(outputPath, result);
-  console.log("Directory structure saved to materialdesign_structure.txt");
+  console.log(
+    "Directory structure saved to materialdesign_structure.txt in rawFile folder"
+  );
 }
 
 main();
