@@ -34,7 +34,6 @@ const componentMap = {
   "mdc-textfield": "text-field",
   "mdc-tooltip": "tooltip",
   "mdc-top-app-bar": "top-app-bar"
-  // Add more mappings if needed
 };
 
 // Function to clean and organize Material Design data
@@ -43,28 +42,37 @@ async function cleanMaterialDesignData() {
     // Iterate over the raw data directory
     const components = fs.readdirSync(rawDir);
 
-    components.forEach((component) => {
+    for (const component of components) {
       const componentPath = path.join(rawDir, component);
 
       if (fs.statSync(componentPath).isDirectory()) {
         const componentName = componentMap[component] || component; // Generic name mapping
-
         const imagesDir = path.join(componentPath, "images");
+
         if (fs.existsSync(imagesDir)) {
           const files = fs.readdirSync(imagesDir);
 
-          files.forEach((file) => {
+          for (const file of files) {
             const filePath = path.join(imagesDir, file);
             const cleanedName = sanitizeFileName(file, "materialdesign");
 
             // Generate contrast metadata regarding the file
-            const metadata = contrastChecker(filePath); // Function checks contrast
+            console.log("STEP 1: this image getting checked 👉:", filePath);
+            const metadata = await contrastChecker(filePath); // Use await here
+            console.log("STEP 5: MetaData: ", metadata);
 
             // Define target directories based on contrast
             const targetDir =
               metadata.contrast === "high"
                 ? path.join(masterDatasetDir, "high_contrast", componentName)
                 : path.join(masterDatasetDir, "low_contrast", componentName);
+
+            console.log(
+              "STEP 6: target Directory of this image:",
+              cleanedName,
+              "is in targetDirectory 💥: ",
+              targetDir
+            );
 
             // Create target directory if it doesn't exist
             if (!fs.existsSync(targetDir)) {
@@ -80,10 +88,10 @@ async function cleanMaterialDesignData() {
             fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
 
             console.log(`Processed: ${filePath} -> ${targetPath}`);
-          });
+          }
         }
       }
-    });
+    }
 
     console.log("Material Design data cleaned and organized.");
   } catch (error) {

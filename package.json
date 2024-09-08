@@ -20,7 +20,7 @@
     "react": "^18",
     "react-dom": "^18",
     "sharp": "^0.33.5",
-    "wcag-contrast": "^3.0.0"
+    "tinycolor2": "^1.6.0"
   },
   "devDependencies": {
     "eslint": "^8",
