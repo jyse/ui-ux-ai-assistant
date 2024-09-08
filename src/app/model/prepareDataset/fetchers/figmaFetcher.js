@@ -2,10 +2,12 @@ import { Client } from "figma-js";
 import axios from "axios";
 import fs from "fs";
 import path from "path";
+import { sanitizeFileName } from "../utilities/sanitizeFileName";
 
-const FIGMA_TOKEN = 'figd_TMbVw4dYNLB34g5PkjCG9wMs6LLyMGU-A74vP-eA'; // Use environment variable for the token
-const client = Client({ personalAccessToken: FIGMA_TOKEN });
+const figmaAPIKey = process.env.FIGMA_API_KEY; // Use environment variable for the token
+const client = Client({ personalAccessToken: figmaAPIKey });
 
+// Fetch the Figma file using its file key
 async function getFigmaFile(fileKey) {
   try {
     const file = await client.file(fileKey);
@@ -16,6 +18,7 @@ async function getFigmaFile(fileKey) {
   }
 }
 
+// Fetch the image URLS for a set of node IDs (frames or components)
 async function getImageUrls(fileKey, nodeIds) {
   try {
     const chunkSize = 100;
@@ -31,15 +34,15 @@ async function getImageUrls(fileKey, nodeIds) {
     }
     return imageUrls;
   } catch (error) {
-    console.error(`Error fetching image URLs for file ${fileKey}:`, error.message);
+    console.error(
+      `Error fetching image URLs for file ${fileKey}:`,
+      error.message
+    );
     return null;
   }
 }
 
-function sanitizeFilename(filename) {
-  return filename.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-}
-
+// Download the image from the URL and save it to the filesystem
 async function downloadImage(url, filepath) {
   try {
     const response = await axios({
@@ -61,10 +64,13 @@ async function downloadImage(url, filepath) {
   }
 }
 
+// Process both wireframes (key screens) and components from the Figma file
 async function processWireframesAndComponents(fileId, outputDir) {
   const file = await getFigmaFile(fileId);
   if (!file || !file.data || !file.data.document) {
-    console.error(`Unable to process file ${fileId}. File not found or inaccessible.`);
+    console.error(
+      `Unable to process file ${fileId}. File not found or inaccessible.`
+    );
     return;
   }
 
@@ -75,15 +81,52 @@ async function processWireframesAndComponents(fileId, outputDir) {
     components: []
   };
 
+  // Traverse the Figma document and find frames (key screens) and components
   function traverse(node, parentFrameId = null) {
     const keyScreenNames = [
-      "Login", "Dashboard", "Signup", "Auth Screen", "Main Screen", "Profile", "Home", "Search", "Checkout",
-      "Welcome", "WalkThrough", "Help", "Product", "Messages", "Activity", "Favorites", "Gallery", "Map",
-      "Search", "Order", "Review", "Notifications", "Support", "Item", "Detail", "Chat", "Feed", "Onboarding",
-      "Wishlist", "Media", "Location", "Results", "History", "Subscription", "Rating"
+      "Login",
+      "Dashboard",
+      "Signup",
+      "Auth Screen",
+      "Main Screen",
+      "Profile",
+      "Home",
+      "Search",
+      "Checkout",
+      "Welcome",
+      "WalkThrough",
+      "Help",
+      "Product",
+      "Messages",
+      "Activity",
+      "Favorites",
+      "Gallery",
+      "Map",
+      "Search",
+      "Order",
+      "Review",
+      "Notifications",
+      "Support",
+      "Item",
+      "Detail",
+      "Chat",
+      "Feed",
+      "Onboarding",
+      "Wishlist",
+      "Media",
+      "Location",
+      "Results",
+      "History",
+      "Subscription",
+      "Rating"
     ];
 
-    if (node.type === "FRAME" && keyScreenNames.some((name) => node.name.toLowerCase().includes(name.toLowerCase()))) {
+    if (
+      node.type === "FRAME" &&
+      keyScreenNames.some((name) =>
+        node.name.toLowerCase().includes(name.toLowerCase())
+      )
+    ) {
       frames.push(node);
       metadata.frames.push({
         id: node.id,
@@ -108,41 +151,51 @@ async function processWireframesAndComponents(fileId, outputDir) {
 
   traverse(file.data.document);
 
+  // Stop if no relevant frames or components are found
   if (frames.length === 0 && components.length === 0) {
     console.log(`No relevant frames or components found in file ${fileId}`);
     return;
   }
 
+  // Fetch and save the images for key screens (frames)
   const frameIds = frames.map((f) => f.id);
   const frameImageUrls = await getImageUrls(fileId, frameIds);
 
   for (const frame of frames) {
     const url = frameImageUrls[frame.id];
     if (url) {
-      const filename = `${sanitizeFilename(frame.name)}.png`;
+      const filename = `${sanitizeFileName(frame.name, "figma")}.png`;
       const filepath = path.join(outputDir, "frames", filename);
       await downloadImage(url, filepath);
       console.log(`Downloaded frame: ${filename}`);
     }
   }
 
+  // Fetch and save the images for components
   const componentIds = components.map((c) => c.id);
   const componentImageUrls = await getImageUrls(fileId, componentIds);
 
   for (const component of components) {
     const url = componentImageUrls[component.id];
     if (url) {
-      const filename = `${sanitizeFilename(component.name)}_${sanitizeFilename(component.parentFrameId)}.png`;
+      const filename = `${sanitizeFileName(
+        component.name,
+        "figma"
+      )}_${sanitizeFileName(component.parentFrameId, "figma")}.png`;
       const filepath = path.join(outputDir, "components", filename);
       try {
         await downloadImage(url, filepath);
         console.log(`Downloaded component: ${filename}`);
       } catch (error) {
-        console.error(`Failed to download component: ${filename}`, error.message);
+        console.error(
+          `Failed to download component: ${filename}`,
+          error.message
+        );
       }
     }
   }
 
+  // Save the metadata for the Figma file
   const metadataFilePath = path.join(outputDir, "metadata.json");
   fs.writeFileSync(metadataFilePath, JSON.stringify(metadata, null, 2));
   console.log(`Metadata saved to ${metadataFilePath}`);
@@ -164,8 +217,16 @@ const fileKeys = [
   "MlbMyARbccwmrtAj9aefNZ"
 ];
 
-const outputDir = path.join(process.cwd(), "..", "..", "data", "figma_components");
+// Direcotry to store raw Figma data
+const outputDir = path.join(
+  process.cwd(),
+  "..",
+  "..",
+  "data",
+  "figma_components"
+);
 
+// Fetch and process all Figma wireframes and components
 async function fetchAllWireframesAndComponents() {
   for (const fileKey of fileKeys) {
     console.log(`Processing Figma file: ${fileKey}`);
@@ -178,6 +239,10 @@ async function fetchAllWireframesAndComponents() {
   console.log("All wireframes and components processed");
 }
 
+// Run the fetcher
 fetchAllWireframesAndComponents().catch((error) => {
-  console.error("An error occurred while fetching wireframes and components:", error);
+  console.error(
+    "An error occurred while fetching wireframes and components:",
+    error
+  );
 });

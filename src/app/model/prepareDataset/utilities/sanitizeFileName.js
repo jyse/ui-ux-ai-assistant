@@ -6,14 +6,11 @@ export function sanitizeFileName(filename, resourceType) {
   // Apply specific naming logic based on resource type
   if (resourceType === "materialdesign") {
     sanitized = materialDesignCategorization(sanitized);
+  } else if (resourceType === "figma") {
+    sanitized = figmaCategorization(sanitized);
   }
 
   // Additional resource types can be added here in future
-  // Example:
-  // else if (resourceType === "figma") {
-  //   sanitized = figmaCategorization(sanitized);
-  // }
-
   return sanitized;
 }
 
@@ -35,5 +32,22 @@ function materialDesignCategorization(sanitized) {
     sanitized = `tooltip_${sanitized}`;
   }
   // Continue adding logic for other Material Design components
+  return sanitized;
+}
+
+// Figma-specific logic for categorizing key screens and components in file names
+function figmaCategorization(sanitized) {
+  if (sanitized.includes("login")) {
+    sanitized = `login_${sanitized}`;
+  } else if (sanitized.includes("dashboard")) {
+    sanitized = `dashboard_${sanitized}`;
+  } else if (sanitized.includes("signup")) {
+    sanitized = `signup_${sanitized}`;
+  } else if (sanitized.includes("profile")) {
+    sanitized = `profile_${sanitized}`;
+  } else if (sanitized.includes("component")) {
+    sanitized = `component_${sanitized}`;
+  }
+  // Continue adding logic for other Figma key screens or components
   return sanitized;
 }
