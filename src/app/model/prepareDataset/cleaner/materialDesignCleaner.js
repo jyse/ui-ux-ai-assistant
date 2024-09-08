@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { contrastChecker } from "../utilities/contrastChecker.js";
+import { sanitizeFileName } from "../utilities/sanitizeFileName.js";
 
 // Equivalent to __filename and __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -14,14 +15,27 @@ const rawDir = path.resolve(
 );
 const masterDatasetDir = path.resolve(
   __dirname,
-  "../../../../../data/master_dataset"
+  "../../../../data/master_dataset"
 );
 
-// Helper function to check if a file is an image
-function isImageFile(filename) {
-  const imageExtensions = [".png", ".jpg", ".jpeg", ".svg"];
-  return imageExtensions.includes(path.extname(filename).toLowerCase());
-}
+// Map Material Design component names to generic folder names
+const componentMap = {
+  "mdc-button": "button",
+  "mdc-card": "card",
+  "mdc-checkbox": "checkbox",
+  "mdc-data-table": "data-table",
+  "mdc-dialog": "dialog",
+  "mdc-drawer": "drawer",
+  "mdc-fab": "fab",
+  "mdc-list": "list",
+  "mdc-radio": "radio",
+  "mdc-slider": "slider",
+  "mdc-switch": "switch",
+  "mdc-textfield": "text-field",
+  "mdc-tooltip": "tooltip",
+  "mdc-top-app-bar": "top-app-bar"
+  // Add more mappings if needed
+};
 
 // Function to clean and organize Material Design data
 async function cleanMaterialDesignData() {
@@ -31,53 +45,43 @@ async function cleanMaterialDesignData() {
 
     components.forEach((component) => {
       const componentPath = path.join(rawDir, component);
+
       if (fs.statSync(componentPath).isDirectory()) {
-        const files = fs.readdirSync(componentPath);
+        const componentName = componentMap[component] || component; // Generic name mapping
 
-        files.forEach((file) => {
-          const filePath = path.join(componentPath, file);
+        const imagesDir = path.join(componentPath, "images");
+        if (fs.existsSync(imagesDir)) {
+          const files = fs.readdirSync(imagesDir);
 
-          // Check if the file is an image
-          if (fs.statSync(filePath).isFile() && isImageFile(file)) {
-            const cleanedName = sanitizeFilename(file);
+          files.forEach((file) => {
+            const filePath = path.join(imagesDir, file);
+            const cleanedName = sanitizeFileName(file, "materialdesign");
 
-            // Generate contrast metadata regarding file
-            contrastChecker(filePath)
-              .then((metadata) => {
-                // Define target directories based on contrast
-                const targetDir =
-                  metadata.contrast === "high"
-                    ? path.join(masterDatasetDir, "high_contrast", component)
-                    : path.join(masterDatasetDir, "low_contrast", component);
+            // Generate contrast metadata regarding the file
+            const metadata = contrastChecker(filePath); // Function checks contrast
 
-                // Create target directory if it doesn't exist
-                if (!fs.existsSync(targetDir)) {
-                  fs.mkdirSync(targetDir, { recursive: true });
-                }
+            // Define target directories based on contrast
+            const targetDir =
+              metadata.contrast === "high"
+                ? path.join(masterDatasetDir, "high_contrast", componentName)
+                : path.join(masterDatasetDir, "low_contrast", componentName);
 
-                // Copy the file over to the organized folder
-                const targetPath = path.join(targetDir, cleanedName);
-                fs.copyFileSync(filePath, targetPath);
+            // Create target directory if it doesn't exist
+            if (!fs.existsSync(targetDir)) {
+              fs.mkdirSync(targetDir, { recursive: true });
+            }
 
-                // Save metadata (e.g., in JSON format)
-                const metadataPath = path.join(
-                  targetDir,
-                  `${cleanedName}.json`
-                );
-                fs.writeFileSync(
-                  metadataPath,
-                  JSON.stringify(metadata, null, 2)
-                );
+            // Copy the file to the organized folder
+            const targetPath = path.join(targetDir, cleanedName);
+            fs.copyFileSync(filePath, targetPath);
 
-                console.log(`Processed: ${filePath} -> ${targetPath}`);
-              })
-              .catch((err) => {
-                console.error(`Error processing file ${filePath}:`, err);
-              });
-          } else {
-            console.log(`Skipping unsupported file: ${filePath}`);
-          }
-        });
+            // Save metadata (e.g., in JSON format)
+            const metadataPath = path.join(targetDir, `${cleanedName}.json`);
+            fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+
+            console.log(`Processed: ${filePath} -> ${targetPath}`);
+          });
+        }
       }
     });
 
@@ -85,11 +89,6 @@ async function cleanMaterialDesignData() {
   } catch (error) {
     console.error("Error during cleaning:", error);
   }
-}
-
-// Helper function to sanitize file names
-function sanitizeFilename(filename) {
-  return filename.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
 }
 
 // Run the cleaner
