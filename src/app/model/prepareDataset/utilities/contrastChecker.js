@@ -3,7 +3,7 @@ import tinycolor from "tinycolor2"; // Import TinyColor library for contrast che
 
 // Function to generate contrast metadata
 export async function contrastChecker(imagePath) {
-  console.log("STEP 2: this image getting checked 👉:", imagePath);
+  // console.log("STEP 2: this image getting checked 👉:", imagePath);
   try {
     // Extract colors from the image
     const colors = await getColors(imagePath);
@@ -17,27 +17,27 @@ export async function contrastChecker(imagePath) {
 
       // Determine if it's high or low contrast based on WCAG thresholds
       const contrast = contrastRatio >= 4.5 ? "high" : "low";
-      console.log(
-        "STEP 3: contract of this image:",
-        imagePath,
-        " has a contract of",
-        contrast
-      );
+      // console.log(
+      //   "STEP 3: contract of this image:",
+      //   imagePath,
+      //   " has a contract of",
+      //   contrast
+      // );
 
       // Return metadata including the contrast information
 
-      console.log(
-        "STEP 4: Return of all contrast metadata regarding this image 🎨: ",
-        imagePath,
-        "contrast: ",
-        contrast,
-        "contrastRatio",
-        contrastRatio,
-        "foreGroundColor: ",
-        fgColor,
-        "backgroundColor: ",
-        bgColor
-      );
+      // console.log(
+      //   "STEP 4: Return of all contrast metadata regarding this image 🎨: ",
+      //   imagePath,
+      //   "contrast: ",
+      //   contrast,
+      //   "contrastRatio",
+      //   contrastRatio,
+      //   "foreGroundColor: ",
+      //   fgColor,
+      //   "backgroundColor: ",
+      //   bgColor
+      // );
 
       return {
         contrast: contrast,
