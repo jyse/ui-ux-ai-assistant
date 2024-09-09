@@ -14,12 +14,14 @@
     "@tensorflow/tfjs": "^4.20.0",
     "@tensorflow/tfjs-node": "^4.20.0",
     "axios": "^1.7.7",
+    "dotenv": "^16.4.5",
     "figma-js": "^1.16.1-0",
-    "fuzzysort": "^3.0.2",
+    "get-image-colors": "^4.0.1",
     "next": "14.2.7",
     "react": "^18",
     "react-dom": "^18",
-    "sharp": "^0.33.5"
+    "sharp": "^0.33.5",
+    "tinycolor2": "^1.6.0"
   },
   "devDependencies": {
     "eslint": "^8",
