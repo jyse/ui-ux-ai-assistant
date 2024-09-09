@@ -33,15 +33,16 @@ const componentMap = {
   "mdc-switch": "switch",
   "mdc-textfield": "text-field",
   "mdc-tooltip": "tooltip",
-  "mdc-top-app-bar": "top-app-bar"
+  "mdc-top-app-bar": "top-app-bar",
+  "mdc-banner": "banner"
 };
 
 // Ensure the master dataset directory and contrast subdirectories exist
 function ensureDirectoriesExist() {
-  console.log("ensuring master data set exists, 🐼🐼🐼🐼🐼");
+  console.log("Ensuring master dataset exists... 🐼🐼🐼");
+
   try {
     if (!fs.existsSync(masterDatasetDir)) {
-      console.log("should come here 🐲");
       console.log(`Creating master dataset directory: ${masterDatasetDir}`);
       fs.mkdirSync(masterDatasetDir, { recursive: true });
     }
@@ -49,15 +50,23 @@ function ensureDirectoriesExist() {
     const highContrastDir = path.join(masterDatasetDir, "high_contrast");
     const lowContrastDir = path.join(masterDatasetDir, "low_contrast");
 
-    if (!fs.existsSync(highContrastDir)) {
-      console.log(`Creating high contrast directory: ${highContrastDir}`);
-      fs.mkdirSync(highContrastDir, { recursive: true });
-    }
+    // Ensure Material Design subdirectories exist within both high and low contrast
+    ["material_design_components"].forEach((subDir) => {
+      const highContrastSubDir = path.join(highContrastDir, subDir);
+      const lowContrastSubDir = path.join(lowContrastDir, subDir);
 
-    if (!fs.existsSync(lowContrastDir)) {
-      console.log(`Creating low contrast directory: ${lowContrastDir}`);
-      fs.mkdirSync(lowContrastDir, { recursive: true });
-    }
+      if (!fs.existsSync(highContrastSubDir)) {
+        console.log(
+          `Creating high contrast subdirectory: ${highContrastSubDir}`
+        );
+        fs.mkdirSync(highContrastSubDir, { recursive: true });
+      }
+
+      if (!fs.existsSync(lowContrastSubDir)) {
+        console.log(`Creating low contrast subdirectory: ${lowContrastSubDir}`);
+        fs.mkdirSync(lowContrastSubDir, { recursive: true });
+      }
+    });
   } catch (error) {
     console.error("Error ensuring directories exist:", error);
   }
@@ -87,9 +96,7 @@ async function cleanMaterialDesignData() {
             const cleanedName = sanitizeFileName(file, "materialdesign");
 
             // Generate contrast metadata regarding the file
-            // console.log("STEP 1: this image getting checked 👉:", filePath);
             const metadata = await contrastChecker(filePath); // Use await here
-            // console.log("STEP 5: MetaData: ", metadata);
 
             // Define target directories based on contrast
             const contrastFolder =
@@ -97,15 +104,9 @@ async function cleanMaterialDesignData() {
             const targetDir = path.join(
               masterDatasetDir,
               contrastFolder,
+              "material_design_components",
               componentName
             );
-
-            // console.log(
-            //   // "STEP 6: target Directory of this image:",
-            //   cleanedName,
-            //   "is in targetDirectory 💥: ",
-            //   targetDir
-            // );
 
             // Create target directory if it doesn't exist
             if (!fs.existsSync(targetDir)) {
@@ -117,11 +118,13 @@ async function cleanMaterialDesignData() {
             const targetPath = path.join(targetDir, cleanedName);
             fs.copyFileSync(filePath, targetPath);
 
+            const jsonFileName = cleanedName.replace("_png", "");
+
             // Save metadata (e.g., in JSON format)
-            const metadataPath = path.join(targetDir, `${cleanedName}.json`);
+            const metadataPath = path.join(targetDir, `${jsonFileName}.json`);
             fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
 
-            // console.log(`Processed: ${filePath} -> ${targetPath}`);
+            console.log(`Processed: ${filePath} -> ${targetPath}`);
           }
         }
       }

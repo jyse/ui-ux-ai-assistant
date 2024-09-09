@@ -52,12 +52,20 @@ async function cleanFigmaData() {
 
     // Load metadata
     const metadata = JSON.parse(fs.readFileSync(metadataFilePath, "utf8"));
-    console.log("Step 1. Checking metadata 🐼: ", metadata);
 
     // Process key screens
     for (const frame of metadata.frames) {
-      const frameFileName = sanitizeFileName(`${frame.name}.png`, "figma");
+      let frameFileName = `${frame.name}.png`; // Directly using .png extension
+      console.log(frameFileName, "FRAME FILE NAME 👹👹👹👹👹👹");
+
+      // Optionally sanitize the filename, but ensuring the extension remains correct
+      frameFileName = sanitizeFileName(frameFileName, "figma").replace(
+        "_png",
+        ".png"
+      ); // Safeguard for incorrect extension
+
       const frameFilePath = path.join(rawDir, "frames", frameFileName);
+      console.log(frameFilePath, "FRAME FILE PATH 🍬🍬🍬🍬🍬🍬");
 
       if (fs.existsSync(frameFilePath)) {
         // Check contrast
@@ -78,24 +86,37 @@ async function cleanFigmaData() {
           fs.mkdirSync(targetDir, { recursive: true });
         }
 
-        // Copy file to the organized folder
+        // Add logging for the target path
         const targetPath = path.join(targetDir, frameFileName);
-        fs.copyFileSync(frameFilePath, targetPath);
+        console.log(`Copying frame to: ${targetPath}`);
 
-        // Save metadata
-        const metadataPath = path.join(targetDir, `${frameFileName}.json`);
-        fs.writeFileSync(metadataPath, JSON.stringify(frame, null, 2));
+        try {
+          // Copy file to the organized folder
+          fs.copyFileSync(frameFilePath, targetPath);
 
-        console.log(`Processed frame: ${frameFilePath} -> ${targetPath}`);
+          // Save metadata
+          const metadataPath = path.join(targetDir, `${frameFileName}.json`);
+          fs.writeFileSync(metadataPath, JSON.stringify(frame, null, 2));
+
+          console.log(`Processed frame: ${frameFilePath} -> ${targetPath}`);
+        } catch (copyError) {
+          console.error(`Error copying file: ${frameFileName}`, copyError);
+        }
+      } else {
+        console.error(`Frame not found: ${frameFilePath}`);
       }
     }
 
     // Process components
     for (const component of metadata.components) {
-      const componentFileName = sanitizeFileName(
-        `${component.name}_${component.parentFrameId}.png`,
-        "figma"
-      );
+      let componentFileName = `${component.name}_${component.parentFrameId}.png`; // Correct extension
+
+      // Optionally sanitize the filename, but ensuring the extension remains correct
+      componentFileName = sanitizeFileName(componentFileName, "figma").replace(
+        "_png",
+        ".png"
+      ); // Safeguard for incorrect extension
+
       const componentFilePath = path.join(
         rawDir,
         "components",
@@ -121,17 +142,29 @@ async function cleanFigmaData() {
           fs.mkdirSync(targetDir, { recursive: true });
         }
 
-        // Copy file to the organized folder
+        // Add logging for the target path
         const targetPath = path.join(targetDir, componentFileName);
-        fs.copyFileSync(componentFilePath, targetPath);
+        console.log(`Copying component to: ${targetPath}`);
 
-        // Save metadata
-        const metadataPath = path.join(targetDir, `${componentFileName}.json`);
-        fs.writeFileSync(metadataPath, JSON.stringify(component, null, 2));
+        try {
+          // Copy file to the organized folder
+          fs.copyFileSync(componentFilePath, targetPath);
 
-        console.log(
-          `Processed component: ${componentFilePath} -> ${targetPath}`
-        );
+          // Save metadata
+          const metadataPath = path.join(
+            targetDir,
+            `${componentFileName}.json`
+          );
+          fs.writeFileSync(metadataPath, JSON.stringify(component, null, 2));
+
+          console.log(
+            `Processed component: ${componentFilePath} -> ${targetPath}`
+          );
+        } catch (copyError) {
+          console.error(`Error copying file: ${componentFileName}`, copyError);
+        }
+      } else {
+        console.error(`Component not found: ${componentFilePath}`);
       }
     }
 
