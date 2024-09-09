@@ -254,6 +254,7 @@ async function processWireframesAndComponents(fileId, outputDir) {
 }
 
 const fileKeys = [
+  // Good examples
   "NFwM2NlCKOcezavU34df5W",
   "2II6f7YhJNbnfsZ4Hjpdyf",
   "GLP26PdcL7XC2qSJ5BXMhR",
@@ -263,10 +264,23 @@ const fileKeys = [
   "NEsdoTg6cmhsBO8SZ1LPcj",
   "TeEDVA3atoMihlKUoydcae",
   "eWBIN3iwIApgNcCq3MpWu0",
-  // "enUK2QmBWn8XIlqhI70Fqs",// was found inaccessible
   "jUUax5RKeO1S7Zf0CttAjy",
   "3Ubj0IUKgG8z5AopZJzrZD",
-  "MlbMyARbccwmrtAj9aefNZ"
+  "MlbMyARbccwmrtAj9aefNZ",
+  // Bad examples
+  "HoY9v5BUL7iIbFa0oTkx9P",
+  "Ds04J2GIhTvuPYAqQHUej3",
+  "DuyuhwlTviyXgRCxl6h63L",
+  "VxWNlaeg1ByGakrJZh94Ff",
+  "sabD5alrrmh6DEmH3YgcI8",
+  "oDf8sIF3RyduJixYYIy4TH",
+  "poL6mt085d3puDTwLPz0Aw",
+  "YhVShYpLNjjtXjdcMokPiD",
+  "k1GZ5dOpx2mR4etVRRU1Ls",
+  "GLqcoQsMZLMkqNYejN5Iom",
+  "uRtIXpRAwJOs7vNly1MtX2",
+  "pn2tGH3VUN86W6vzb4Zgfm",
+  "EkEXAkyB942bvEZ43OZF4S"
 ];
 
 // Directory to store raw Figma data (adjust to a valid path within your project)

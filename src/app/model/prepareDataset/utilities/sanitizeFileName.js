@@ -1,5 +1,6 @@
 // Helper function to sanitize file names and categorize components
 export function sanitizeFileName(filename, resourceType) {
+  console.log("Getting sanitized: 🎨", filename, resourceType);
   // Sanitize: Remove special characters and convert to lowercase
   let sanitized = filename.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
 

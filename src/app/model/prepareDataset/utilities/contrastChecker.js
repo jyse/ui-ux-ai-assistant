@@ -3,6 +3,7 @@ import tinycolor from "tinycolor2"; // Import TinyColor library for contrast che
 
 // Function to generate contrast metadata
 export async function contrastChecker(imagePath) {
+  console.log("Contrast of this image getting checked...🎨: ", imagePath);
   // console.log("STEP 2: this image getting checked 👉:", imagePath);
   try {
     // Extract colors from the image
