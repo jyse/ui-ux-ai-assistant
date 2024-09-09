@@ -1,11 +1,56 @@
+import dotenv from "dotenv";
+dotenv.config(); // This loads the .env file
 import { Client } from "figma-js";
 import axios from "axios";
 import fs from "fs";
 import path from "path";
-import { sanitizeFileName } from "../utilities/sanitizeFileName";
+import { fileURLToPath } from "url";
+import { sanitizeFileName } from "../utilities/sanitizeFileName.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const figmaAPIKey = process.env.FIGMA_API_KEY; // Use environment variable for the token
 const client = Client({ personalAccessToken: figmaAPIKey });
+
+// Track processed files
+const processedFilesLog = path.join(__dirname, "processed_files.json");
+
+// Ensure the output directory exists
+async function ensureDirectoryExists(directory) {
+  try {
+    await fs.promises.mkdir(directory, { recursive: true });
+    console.log(`Directory ensured: ${directory}`);
+  } catch (error) {
+    console.error(`Error ensuring directory ${directory}:`, error.message);
+  }
+}
+
+// Log processed file
+async function logProcessedFile(fileKey) {
+  let processedFiles = [];
+  if (fs.existsSync(processedFilesLog)) {
+    processedFiles = JSON.parse(fs.readFileSync(processedFilesLog, "utf8"));
+  }
+  if (!processedFiles.includes(fileKey)) {
+    processedFiles.push(fileKey);
+    fs.writeFileSync(
+      processedFilesLog,
+      JSON.stringify(processedFiles, null, 2)
+    );
+  }
+}
+
+// Check if a file has already been processed
+async function isFileProcessed(fileKey) {
+  if (fs.existsSync(processedFilesLog)) {
+    const processedFiles = JSON.parse(
+      fs.readFileSync(processedFilesLog, "utf8")
+    );
+    return processedFiles.includes(fileKey);
+  }
+  return false;
+}
 
 // Fetch the Figma file using its file key
 async function getFigmaFile(fileKey) {
@@ -157,6 +202,13 @@ async function processWireframesAndComponents(fileId, outputDir) {
     return;
   }
 
+  // Ensure sub-directories exist for frames and components
+  const framesDir = path.join(outputDir, "frames");
+  const componentsDir = path.join(outputDir, "components");
+
+  await ensureDirectoryExists(framesDir);
+  await ensureDirectoryExists(componentsDir);
+
   // Fetch and save the images for key screens (frames)
   const frameIds = frames.map((f) => f.id);
   const frameImageUrls = await getImageUrls(fileId, frameIds);
@@ -217,21 +269,31 @@ const fileKeys = [
   "MlbMyARbccwmrtAj9aefNZ"
 ];
 
-// Direcotry to store raw Figma data
+// Directory to store raw Figma data (adjust to a valid path within your project)
 const outputDir = path.join(
-  process.cwd(),
+  __dirname,
+  "..",
+  "..",
+  "..",
   "..",
   "..",
   "data",
-  "figma_components"
+  "raw",
+  "figma"
 );
 
-// Fetch and process all Figma wireframes and components
+// Fetch and process Figma files
 async function fetchAllWireframesAndComponents() {
   for (const fileKey of fileKeys) {
+    if (await isFileProcessed(fileKey)) {
+      console.log(`Skipping already processed file: ${fileKey}`);
+      continue;
+    }
+
     console.log(`Processing Figma file: ${fileKey}`);
     try {
       await processWireframesAndComponents(fileKey, outputDir);
+      await logProcessedFile(fileKey);
     } catch (error) {
       console.error(`Error processing file ${fileKey}:`, error.message);
     }
