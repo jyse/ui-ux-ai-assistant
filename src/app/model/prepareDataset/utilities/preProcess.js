@@ -21,19 +21,3 @@ export const processImage = async (imagePath) => {
   return normalizedTensor;
 };
 
-// Process dataset for training (returns a list of tensors and their corresponding labels)
-export const preprocessDataset = async (imagePaths, metadata) => {
-  const processedData = [];
-
-  for (const imagePath of imagePaths) {
-    try {
-      const imageTensor = await processImage(imagePath); // Preprocess each image
-      const contrastLabel = metadata[imagePath]; // Assuming metadata has contrast info
-      processedData.push({ image: imageTensor, label: contrastLabel }); // Store processed image and its label
-    } catch (err) {
-      console.error(`Failed to process image ${imagePath}:`, err);
-    }
-  }
-
-  return processedData;
-};
