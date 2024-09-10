@@ -1,7 +1,7 @@
-import * as tf from '@tensorflow/tfjs-node';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import * as tf from "@tensorflow/tfjs-node";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,7 +17,7 @@ function getAllImagePaths(dirPath) {
 
     if (stat.isDirectory()) {
       imagePaths = imagePaths.concat(getAllImagePaths(filePath));
-    } else if (filePath.endsWith('.png') || filePath.endsWith('.jpg')) {
+    } else if (filePath.endsWith(".png") || filePath.endsWith(".jpg")) {
       imagePaths.push(filePath);
     }
   }
@@ -57,7 +57,7 @@ export async function processImage(imagePath) {
 
 // Save processed data to file
 function saveProcessedData(data, outputFilePath) {
-  const processedDataArray = data.map(imageTensor => imageTensor.arraySync());
+  const processedDataArray = data.map((imageTensor) => imageTensor.arraySync());
   fs.writeFileSync(outputFilePath, JSON.stringify(processedDataArray));
   console.log(`Processed data saved to: ${outputFilePath}`);
 }
@@ -89,11 +89,19 @@ export async function preprocessMasterDataset(datasetPath, outputFileName) {
 // If you want to run this file independently, you can add a main function
 async function main() {
   console.log("Preprocessing high contrast dataset...");
-  await preprocessMasterDataset("../../../../data/master_dataset/high_contrast", "processed_high_contrast.json");
+  await preprocessMasterDataset(
+    "../../../../../data/master_dataset/high_contrast",
+    "processed_high_contrast.json"
+  );
 
   console.log("Preprocessing low contrast dataset...");
-  await preprocessMasterDataset("../../../../data/master_dataset/low_contrast", "processed_low_contrast.json");
+  await preprocessMasterDataset(
+    "../../../../../data/master_dataset/low_contrast",
+    "processed_low_contrast.json"
+  );
 }
 
 // Run the main function if this script is executed directly
-main().catch((err) => console.error('An error occurred during preprocessing:', err));
+main().catch((err) =>
+  console.error("An error occurred during preprocessing:", err)
+);
