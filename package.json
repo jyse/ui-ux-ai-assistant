@@ -1,6 +1,7 @@
 {
   "name": "ui-ux-ai-assistant",
   "version": "0.1.0",
+  "type": "module",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -11,6 +12,7 @@
   "dependencies": {
     "@tensorflow-models/mobilenet": "^2.1.1",
     "@tensorflow/tfjs": "^4.21.0",
+    "@tensorflow/tfjs-node": "^4.21.0",
     "axios": "^1.7.7",
     "dotenv": "^16.4.5",
     "figma-js": "^1.16.1-0",
