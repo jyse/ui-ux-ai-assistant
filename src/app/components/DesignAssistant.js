@@ -1,13 +1,10 @@
-'use client'
+"use client";
 
-import React, { useState } from 'react';
-import Image from 'next/image';
-import { analyzeDesign } from '../utils/designAnalysis';
-import { generateFeedback } from '../utils/openAIFeedback';
+import React, { useState } from "react";
 
 const DesignAssistant = () => {
   const [selectedImage, setSelectedImage] = useState(null);
-  const [feedback, setFeedback] = useState('');
+  const [feedback, setFeedback] = useState("");
 
   const handleImageChange = (event) => {
     const file = event.target.files[0];
@@ -22,9 +19,20 @@ const DesignAssistant = () => {
 
   const handleAnalyze = async () => {
     if (selectedImage) {
-      const analysisResult = await analyzeDesign(selectedImage);
-      const feedbackText = await generateFeedback(analysisResult);
-      setFeedback(feedbackText);
+      try {
+        const response = await fetch("/api/preprocess", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ imagePath: selectedImage }) // Sending image path or data
+        });
+
+        const data = await response.json();
+        setFeedback(data.processedImage || "No feedback received");
+      } catch (err) {
+        console.error("Error fetching feedback:", err);
+      }
     }
   };
 
@@ -35,12 +43,11 @@ const DesignAssistant = () => {
       {selectedImage && (
         <div>
           <h3>Uploaded Design:</h3>
-          <Image
+          <img
             src={selectedImage}
             alt="Uploaded design"
             width={300}
             height={200}
-            layout="responsive"
           />
         </div>
       )}
