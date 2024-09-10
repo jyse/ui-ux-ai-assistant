@@ -1,30 +1,25 @@
-export default {
-  reactStrictMode: true
-  // experimental: {
-  //   appDir: false // disable the experimental app directory
-  // }
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Attempt to resolve these modules to false if they're not found
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        "@mapbox/node-pre-gyp": false,
+        "@tensorflow/tfjs-node": false,
+        "mock-aws-s3": false,
+        "aws-sdk": false
+      };
+    }
 
-  // Comment out Webpack config temporarily to check if it resolves the issue
-  // webpack: async (config, { isServer }) => {
-  //   if (!isServer) {
-  //     // Dynamically import webpack for ES6 module compatibility
-  //     const webpack = (await import("webpack")).default;
+    // Add a rule to handle HTML files
+    config.module.rules.push({
+      test: /\.html$/,
+      use: "raw-loader"
+    });
 
-  //     // Exclude problematic modules from client-side builds
-  //     config.externals = {
-  //       ...config.externals,
-  //       "@tensorflow/tfjs-node": "commonjs @tensorflow/tfjs-node",
-  //       "@mapbox/node-pre-gyp": "commonjs @mapbox/node-pre-gyp"
-  //     };
-
-  //     // Use IgnorePlugin for node-pre-gyp
-  //     config.plugins.push(
-  //       new webpack.IgnorePlugin({
-  //         resourceRegExp: /node-pre-gyp\/lib\/util\/nw-pre-gyp\/index.html/
-  //       })
-  //     );
-  //   }
-
-  //   return config;
-  // }
+    return config;
+  }
 };
+
+export default nextConfig;
