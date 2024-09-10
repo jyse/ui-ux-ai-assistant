@@ -20,6 +20,10 @@
 .DS_Store
 *.pem
 
+# Ignore the processed dataset files
+src/app/model/prepareDataset/processed_high_contrast.json
+src/app/model/prepareDataset/processed_low_contrast.json
+
 # debug
 npm-debug.log*
 yarn-debug.log*
