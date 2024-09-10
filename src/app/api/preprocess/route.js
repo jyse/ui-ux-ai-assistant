@@ -1,6 +1,6 @@
 // Lance's updated route of Jessy's route.js this doesnt save the processed image as Tensor json anymore because GPT said it may not be ideal and instead returns to the user
 
-import { processImage } from "../../model/prepareDataset/utilities/preProcess";
+import { processImage } from "../../model/prepareDataset/utilities/preProcessImg";
 
 // Ensure this runs only on the server
 export const runtime = "nodejs";
@@ -11,7 +11,7 @@ export async function POST(req, res) {
 
     if (!imagePath) {
       return new Response(JSON.stringify({ error: "No image path provided" }), {
-        status: 400,
+        status: 400
       });
     }
 
@@ -19,15 +19,20 @@ export async function POST(req, res) {
     const processedImage = await processImage(imagePath);
 
     if (!processedImage) {
-      return new Response(JSON.stringify({ error: "Failed to process image" }), {
-        status: 500,
-      });
+      return new Response(
+        JSON.stringify({ error: "Failed to process image" }),
+        {
+          status: 500
+        }
+      );
     }
+    // Make AI model prediction
+    // const prediction = await predictOutcome(processedImage);
 
-    // You can decide to return more detailed info or save processedImage
-    return new Response(JSON.stringify({ success: true, message: "Image processed successfully" }), {
-      status: 200,
-    });
+    // Return the AI's prediction as feedback to the frontend
+    // return new Response(JSON.stringify({ success: true, prediction }), {
+    //   status: 200
+    // });
   } catch (err) {
     console.error("Error during image preprocessing:", err);
     return new Response(
