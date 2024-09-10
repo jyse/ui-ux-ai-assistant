@@ -51,8 +51,7 @@ data/
 # Ignore large JSON
 src/app/model/prepareDataset/prepared_data.json
 src/app/model/prepareDataset/preprocessed_data.json
-src/app/model/prepareDataset/utilities/processed_high_contrast.json
-src/app/model/prepareDataset/utilities/processed_low_contrast.json
-
-
 src/app/model/finetuning/trained_model/
+
+src/app/model/prepareDataset/utilities/processed_low_contrast.json" 
+src/app/model/prepareDataset/utilities/processed_high_contrast.json" 
