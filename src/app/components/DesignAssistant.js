@@ -5,6 +5,7 @@ import React, { useState } from "react";
 const DesignAssistant = () => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [feedback, setFeedback] = useState("");
+  const [openAIFeedback, setOpenAIFeedback] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState("");
 
@@ -25,14 +26,16 @@ const DesignAssistant = () => {
     setIsAnalyzing(true);
     setError("");
     setFeedback("");
+    setOpenAIFeedback("");
 
     try {
+      // Step 1: Analyze Image
       const response = await fetch("/api/preprocess", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ imageData: selectedImage })
+        body: JSON.stringify({ imageData: selectedImage }),
       });
 
       if (!response.ok) {
@@ -44,12 +47,34 @@ const DesignAssistant = () => {
 
       if (data.success) {
         setFeedback(`Analysis result: ${data.result}`);
+
+        // Step 2: Send result to OpenAI API for comprehensive feedback
+        const openAIResponse = await fetch("/api/openai", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ result: data.result }),
+        });
+
+        if (!openAIResponse.ok) {
+          throw new Error(`OpenAI HTTP error! status: ${openAIResponse.status}`);
+        }
+
+        const openAIData = await openAIResponse.json();
+        
+        // New error handling for OpenAI API response
+        if (openAIData.error) {
+          setError(`OpenAI Error: ${openAIData.error}`);
+        } else {
+          setOpenAIFeedback(openAIData.feedback);
+        }
       } else {
         setError("Analysis failed. Please try again.");
       }
     } catch (error) {
       console.error("Error:", error);
-      setError("An error occurred during analysis. Please try again.");
+      setError(`An error occurred during analysis: ${error.message}`);
     } finally {
       setIsAnalyzing(false);
     }
@@ -81,6 +106,12 @@ const DesignAssistant = () => {
         <div>
           <h3>Feedback:</h3>
           <p>{feedback}</p>
+          {openAIFeedback && (
+            <div>
+              <h3>Detailed Feedback:</h3>
+              <p>{openAIFeedback}</p>
+            </div>
+          )}
         </div>
       )}
     </div>
