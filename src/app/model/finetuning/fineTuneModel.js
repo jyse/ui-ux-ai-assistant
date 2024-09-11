@@ -12,12 +12,14 @@ async function loadPreprocessedData() {
     __dirname,
     "..",
     "prepareDataset",
+    "utilities",
     "processed_high_contrast.json"
   );
   const dataPathLowContrast = path.join(
     __dirname,
     "..",
     "prepareDataset",
+    "utilities",
     "processed_low_contrast.json"
   );
 

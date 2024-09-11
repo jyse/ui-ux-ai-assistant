@@ -1,24 +1,38 @@
-/** @type {import('next').NextConfig} */
+import path from "path";
+
 const nextConfig = {
   webpack: (config, { isServer }) => {
     if (!isServer) {
-      // Attempt to resolve these modules to false if they're not found
+      // Avoid Webpack trying to bundle server-only modules in the client
       config.resolve.fallback = {
         ...config.resolve.fallback,
-        "@mapbox/node-pre-gyp": false,
         "@tensorflow/tfjs-node": false,
         "mock-aws-s3": false,
-        "aws-sdk": false
+        "aws-sdk": false,
+        nock: false,
+        "@mapbox/node-pre-gyp": false
       };
+    } else {
+      // Server-specific configuration
+      config.externals = [
+        ...config.externals,
+        { "@tensorflow/tfjs-node": "commonjs @tensorflow/tfjs-node" }
+      ];
     }
 
-    // Add a rule to handle HTML files
+    // Add a rule to ignore HTML files in node_modules
     config.module.rules.push({
       test: /\.html$/,
-      use: "raw-loader"
+      include: /node_modules/,
+      use: "ignore-loader"
     });
 
     return config;
+  },
+
+  // Experimental feature to allow importing from outside the src directory
+  experimental: {
+    serverComponentsExternalPackages: ["@tensorflow/tfjs-node"]
   }
 };
 

@@ -1,23 +1,18 @@
-import * as tf from "@tensorflow/tfjs";
+import * as tf from "@tensorflow/tfjs-node";
 import sharp from "sharp";
-import fs from "fs";
 
-// Resize and normalize image
-export const processImage = async (imagePath) => {
-  const buffer = fs.readFileSync(imagePath);
+export async function processImage(imagePath) {
+  // Read the image file
+  const imageBuffer = await sharp(imagePath)
+    .resize(224, 224, { fit: "cover" })
+    .toBuffer();
 
-  // Resize image to 224x224 and normalize values
-  const processedImage = await sharp(buffer).resize(224, 224).raw().toBuffer();
+  // Convert the image to a tensor
+  const tfimage = tf.node.decodeImage(imageBuffer, 3);
 
-  // Convert the image to a tensor (3 channels - RGB)
-  const imageTensor = tf.tensor3d(
-    new Uint8Array(processedImage),
-    [224, 224, 3]
-  );
+  // Normalize the image
+  const normalized = tfimage.toFloat().div(tf.scalar(255));
 
-  // Normalize values from 0-255 to 0-1
-  const normalizedTensor = imageTensor.div(tf.scalar(255));
-
-  return normalizedTensor;
-};
-
+  // Expand dimensions to match the model's expected input shape
+  return normalized.expandDims();
+}
